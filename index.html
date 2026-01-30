@@ -7061,7 +7061,7 @@ async function obterOuCriarPasta() {
     }
 }
 
-async function uploadFotoParaDrive(blob, nomeArquivo) {
+async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
     if (!CONFIG_DRIVE.conectado) {
         throw new Error('Drive não conectado');
     }
@@ -7081,25 +7081,57 @@ async function uploadFotoParaDrive(blob, nomeArquivo) {
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', blob);
 
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + CONFIG_DRIVE.accessToken
-        },
-        body: form
-    });
+    console.log(`📤 Tentativa ${tentativa} de upload: ${nomeArquivo} (${(blob.size/1024).toFixed(0)}KB)`);
 
-    if (!response.ok) {
-        throw new Error('Upload falhou: ' + response.statusText);
+    // 🆕 TIMEOUT DE 30 SEGUNDOS
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('⏱️ Upload cancelado por timeout (30s)');
+    }, 30000); // 30 segundos
+
+    try {
+        const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + CONFIG_DRIVE.accessToken
+            },
+            body: form,
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            throw new Error('Upload falhou: ' + response.statusText);
+        }
+
+        const result = await response.json();
+        console.log('✅ Foto enviada:', result.id);
+        
+        return {
+            id: result.id,
+            url: result.webViewLink
+        };
+        
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        // 🆕 RETRY AUTOMÁTICO (até 2 tentativas)
+        if (tentativa < 2 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+            console.log(`🔄 Tentando novamente (tentativa ${tentativa + 1})...`);
+            mostrarToast(`🔄 Tentativa ${tentativa + 1} de upload...`, 'info');
+            
+            // Aguarda 2 segundos antes de tentar novamente
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            return uploadFotoParaDrive(blob, nomeArquivo, tentativa + 1);
+        }
+        
+        // Se falhou após 2 tentativas, joga erro
+        console.error('❌ Upload falhou após', tentativa, 'tentativa(s):', error);
+        throw new Error('Upload falhou: ' + (error.name === 'AbortError' ? 'Tempo limite excedido (30s)' : error.message));
     }
-
-    const result = await response.json();
-    console.log('✅ Foto enviada:', result.id);
-    
-    return {
-        id: result.id,
-        url: result.webViewLink
-    };
 }
 
 async function removerFotoDrive(fileId) {
@@ -7461,44 +7493,67 @@ async function anexarFotosGoogleDrive(input) {
             
             console.log('📤 Enviando foto para Drive:', nomeArquivo, 'Tipo:', file.type, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
             
-            const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
-            
-            // 🆕 APÓS UPLOAD, ATUALIZA O PREVIEW
-            div.setAttribute('data-drive-id', resultado.id);
-            div.setAttribute('data-drive-url', resultado.url);
-            div.setAttribute('data-upload-status', 'completed');
-            
-            // Remove badge e restaura opacidade
-            badge.remove();
-            img.style.opacity = '1';
-            btnRemover.style.display = 'flex';
-            
-            // Atualiza o onclick do botão remover APÓS ter o ID do Drive
-            btnRemover.onclick = async (e) => {
-                e.stopPropagation();
-                if (confirm('Remover esta foto do Google Drive?')) {
-                    try {
-                        await removerFotoDrive(resultado.id);
-                        URL.revokeObjectURL(urlLocal);
-                        div.remove();
-                        mostrarToast('✅ Foto removida!', 'sucesso');
-                    } catch(error) {
-                        console.error('Erro ao remover:', error);
-                        mostrarToast('❌ Erro ao remover foto', 'erro');
+            try {
+                const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
+                
+                // 🆕 APÓS UPLOAD BEM-SUCEDIDO, ATUALIZA O PREVIEW
+                div.setAttribute('data-drive-id', resultado.id);
+                div.setAttribute('data-drive-url', resultado.url);
+                div.setAttribute('data-upload-status', 'completed');
+                
+                // Remove badge e restaura opacidade
+                badge.remove();
+                img.style.opacity = '1';
+                btnRemover.style.display = 'flex';
+                
+                // Atualiza o onclick do botão remover APÓS ter o ID do Drive
+                btnRemover.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm('Remover esta foto do Google Drive?')) {
+                        try {
+                            await removerFotoDrive(resultado.id);
+                            URL.revokeObjectURL(urlLocal);
+                            div.remove();
+                            mostrarToast('✅ Foto removida!', 'sucesso');
+                        } catch(error) {
+                            console.error('Erro ao remover:', error);
+                            mostrarToast('❌ Erro ao remover foto', 'erro');
+                        }
                     }
+                };
+                
+                enviadas++;
+                const percentual = Math.round((enviadas / total) * 100);
+                if (progressBar) {
+                    progressBar.style.width = percentual + '%';
+                    progressBar.textContent = percentual + '%';
                 }
-            };
-            
-            enviadas++;
-            const percentual = Math.round((enviadas / total) * 100);
-            if (progressBar) {
-                progressBar.style.width = percentual + '%';
-                progressBar.textContent = percentual + '%';
+                if (detailsText) detailsText.textContent = enviadas + ' de ' + total + ' fotos enviadas';
+                
+                console.log('✅ Foto enviada e preview criado:', nomeArquivo);
+                mostrarToast('✅ Foto ' + enviadas + '/' + total + ' enviada!');
+                
+            } catch (uploadError) {
+                // 🆕 SE UPLOAD FALHAR, REMOVE O PREVIEW E MOSTRA ERRO CLARO
+                console.error('❌ Upload falhou:', uploadError);
+                
+                // Remove preview da foto que falhou
+                URL.revokeObjectURL(urlLocal);
+                div.remove();
+                
+                // Mostra erro detalhado
+                const mensagemErro = uploadError.message || 'Erro desconhecido';
+                mostrarToast('❌ ' + mensagemErro, 'erro');
+                
+                // Se foi timeout, sugere reduzir qualidade
+                if (mensagemErro.includes('Tempo limite')) {
+                    setTimeout(() => {
+                        mostrarToast('💡 Dica: Conexão lenta detectada. Tente uma foto menor.', 'info');
+                    }, 2000);
+                }
+                
+                throw uploadError; // Re-lança para o catch externo
             }
-            if (detailsText) detailsText.textContent = enviadas + ' de ' + total + ' fotos enviadas';
-            
-            console.log('✅ Foto enviada e preview criado:', nomeArquivo);
-            mostrarToast('✅ Foto ' + enviadas + '/' + total + ' enviada!');
             
         } catch (e) {
             console.error('❌ Erro ao enviar foto:', e);
