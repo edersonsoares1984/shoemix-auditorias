@@ -7309,32 +7309,22 @@ async function anexarFotosGoogleDrive(input) {
                 continue;
             }
             
-            if (statusText) statusText.textContent = 'Enviando ' + file.name + '...';
-            
             // Cria o blob corretamente
             const arrayBuffer = await file.arrayBuffer();
             const blob = new Blob([arrayBuffer], { type: file.type });
             
-            // 🆕 Usa visitaId (temporário ou de edição) no nome do arquivo
-            const visitaId = window.visitaIdTemporario || 'sem_visita';
-            const nomeArquivo = visitaId + '_' + secaoId + '_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
+            const urlLocal = URL.createObjectURL(blob);
             
-            console.log('📤 Enviando foto:', nomeArquivo, 'Tipo:', file.type, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
-            
-            const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
-            
-            // Cria visualização IMEDIATAMENTE
             const div = document.createElement('div');
             div.className = 'foto-item';
-            div.setAttribute('data-drive-id', resultado.id);
-            div.setAttribute('data-drive-url', resultado.url);
             div.setAttribute('data-secao-id', secaoId);
+            div.setAttribute('data-upload-status', 'uploading'); // Marca como enviando
             
-            // Cria URL local para preview
-            const urlLocal = URL.createObjectURL(blob);
             const img = document.createElement('img');
             img.src = urlLocal;
             img.alt = 'Foto anexada';
+            img.style.opacity = '0.6'; // Fica meio transparente enquanto envia
             img.onclick = () => {
                 const modal = document.getElementById('modalFoto');
                 const modalImg = document.getElementById('imagemModal');
@@ -7346,6 +7336,41 @@ async function anexarFotosGoogleDrive(input) {
             btnRemover.className = 'remover-foto';
             btnRemover.type = 'button';
             btnRemover.innerHTML = '×';
+            btnRemover.style.display = 'none'; // Esconde botão até terminar upload
+            
+            // Badge de "Enviando..."
+            const badge = document.createElement('div');
+            badge.style.cssText = 'position:absolute;top:5px;left:5px;background:rgba(255,165,0,0.9);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;z-index:5';
+            badge.textContent = '📤 Enviando...';
+            
+            div.appendChild(badge);
+            div.appendChild(btnRemover);
+            div.appendChild(img);
+            preview.appendChild(div);
+            
+            console.log('✅ Preview criado ANTES do upload');
+            
+            // 🆕 AGORA SIM FAZ O UPLOAD
+            if (statusText) statusText.textContent = 'Enviando ' + file.name + '...';
+            
+            const visitaId = window.visitaIdTemporario || 'sem_visita';
+            const nomeArquivo = visitaId + '_' + secaoId + '_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            
+            console.log('📤 Enviando foto para Drive:', nomeArquivo, 'Tipo:', file.type, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
+            
+            const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
+            
+            // 🆕 APÓS UPLOAD, ATUALIZA O PREVIEW
+            div.setAttribute('data-drive-id', resultado.id);
+            div.setAttribute('data-drive-url', resultado.url);
+            div.setAttribute('data-upload-status', 'completed');
+            
+            // Remove badge e restaura opacidade
+            badge.remove();
+            img.style.opacity = '1';
+            btnRemover.style.display = 'flex';
+            
+            // Atualiza o onclick do botão remover APÓS ter o ID do Drive
             btnRemover.onclick = async (e) => {
                 e.stopPropagation();
                 if (confirm('Remover esta foto do Google Drive?')) {
@@ -7360,10 +7385,6 @@ async function anexarFotosGoogleDrive(input) {
                     }
                 }
             };
-            
-            div.appendChild(btnRemover);
-            div.appendChild(img);
-            preview.appendChild(div);
             
             enviadas++;
             const percentual = Math.round((enviadas / total) * 100);
