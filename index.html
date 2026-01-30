@@ -2789,8 +2789,8 @@ function comprimirImagemModerna(file) {
                     let width = img.width;
                     let height = img.height;
                     
-                    // 🆕 Define tamanho máximo MENOR (600px) para compressão mais agressiva em celulares
-                    const maxSize = 600;
+                    // 🔥 COMPRESSÃO EXTREMA PARA CÂMERA: 400px (fotos de câmera são MUITO grandes)
+                    const maxSize = 400;
                     if (width > height) {
                         if (width > maxSize) {
                             height *= maxSize / width;
@@ -2809,14 +2809,14 @@ function comprimirImagemModerna(file) {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // 🆕 Comprime para JPEG com qualidade 0.5 (50%) - otimizado para conexões móveis
+                    // 🔥 QUALIDADE 40% - Máxima compressão para upload mobile
                     canvas.toBlob((blob) => {
                         if (blob) {
                             resolve(blob);
                         } else {
                             reject(new Error('Falha ao comprimir imagem'));
                         }
-                    }, 'image/jpeg', 0.5);
+                    }, 'image/jpeg', 0.4);
                     
                 } catch(error) {
                     reject(error);
@@ -7083,12 +7083,12 @@ async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
 
     console.log(`📤 Tentativa ${tentativa} de upload: ${nomeArquivo} (${(blob.size/1024).toFixed(0)}KB)`);
 
-    // 🆕 TIMEOUT DE 60 SEGUNDOS (aumentado para conexões móveis)
+    // 🔥 TIMEOUT DE 90 SEGUNDOS (3x mais que o original para conexões móveis muito lentas)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('⏱️ Upload cancelado por timeout (60s)');
-    }, 60000); // 60 segundos
+        console.log('⏱️ Upload cancelado por timeout (90s)');
+    }, 90000); // 90 segundos
 
     try {
         const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
@@ -7117,20 +7117,20 @@ async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
     } catch (error) {
         clearTimeout(timeoutId);
         
-        // 🆕 RETRY AUTOMÁTICO (até 2 tentativas)
-        if (tentativa < 2 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+        // 🔥 RETRY AUTOMÁTICO (até 3 tentativas para conexões lentas)
+        if (tentativa < 3 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
             console.log(`🔄 Tentando novamente (tentativa ${tentativa + 1})...`);
-            mostrarToast(`🔄 Tentativa ${tentativa + 1} de upload...`, 'info');
+            mostrarToast(`🔄 Tentativa ${tentativa + 1}/3 - Aguarde...`, 'info');
             
-            // Aguarda 2 segundos antes de tentar novamente
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Aguarda 3 segundos antes de tentar novamente
+            await new Promise(resolve => setTimeout(resolve, 3000));
             
             return uploadFotoParaDrive(blob, nomeArquivo, tentativa + 1);
         }
         
-        // Se falhou após 2 tentativas, joga erro
+        // Se falhou após 3 tentativas, joga erro
         console.error('❌ Upload falhou após', tentativa, 'tentativa(s):', error);
-        throw new Error('Upload falhou: ' + (error.name === 'AbortError' ? 'Tempo limite excedido (60s) - Tente uma foto menor' : error.message));
+        throw new Error('Upload falhou após 3 tentativas: ' + (error.name === 'AbortError' ? 'Conexão muito lenta (90s) - Use Wi-Fi' : error.message));
     }
 }
 
@@ -7436,21 +7436,17 @@ async function anexarFotosGoogleDrive(input) {
             
             console.log('📸 Foto original:', file.name, 'Tamanho:', (file.size/1024).toFixed(0)+'KB');
             
-            // 🆕 COMPRIME A IMAGEM ANTES DE ENVIAR (especialmente importante para fotos da câmera)
+            // 🔥 SEMPRE COMPRIME (fotos de câmera são SEMPRE grandes, 3-8 MB)
             let blob;
-            if (file.size > 300 * 1024) { // Se maior que 300KB, comprime
-                console.log('🔄 Comprimindo imagem (tamanho > 300KB)...');
-                if (statusText) statusText.textContent = '🔄 Comprimindo ' + file.name + '...';
-                mostrarToast('🔄 Comprimindo ' + (enviadas + 1) + '/' + total + '...', 'info');
-                blob = await comprimirImagemModerna(file);
-                console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
-                if (statusText) statusText.textContent = '✅ Comprimido: ' + (blob.size/1024).toFixed(0)+'KB';
-            } else {
-                // Se já é pequena, usa direto
-                const arrayBuffer = await file.arrayBuffer();
-                blob = new Blob([arrayBuffer], { type: file.type });
-                console.log('✅ Imagem pequena, sem compressão necessária');
-            }
+            console.log('🔄 Comprimindo imagem...');
+            if (statusText) statusText.textContent = '🔄 Comprimindo ' + file.name + '...';
+            mostrarToast('🔄 Comprimindo ' + (enviadas + 1) + '/' + total + '...', 'info');
+            
+            blob = await comprimirImagemModerna(file);
+            
+            console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
+            if (statusText) statusText.textContent = '✅ Comprimido: ' + (blob.size/1024).toFixed(0)+'KB';
+            mostrarToast('✅ Pronto! Enviando...', 'info');
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
             const urlLocal = URL.createObjectURL(blob);
@@ -7549,10 +7545,10 @@ async function anexarFotosGoogleDrive(input) {
                 const mensagemErro = uploadError.message || 'Erro desconhecido';
                 mostrarToast('❌ ' + mensagemErro, 'erro');
                 
-                // Se foi timeout, sugere reduzir qualidade
-                if (mensagemErro.includes('Tempo limite') || mensagemErro.includes('60s')) {
+                // Se foi timeout, sugere usar Wi-Fi
+                if (mensagemErro.includes('Conexão muito lenta') || mensagemErro.includes('90s') || mensagemErro.includes('3 tentativas')) {
                     setTimeout(() => {
-                        mostrarToast('💡 DICA: Conexão lenta! Fotos grandes podem falhar. Tente tirar fotos menores ou usar uma conexão Wi-Fi.', 'info');
+                        mostrarToast('💡 CONEXÃO MUITO LENTA! Foto falhou após 3 tentativas. Use Wi-Fi ou tire foto com resolução menor nas configurações da câmera.', 'erro');
                     }, 2000);
                 }
                 
