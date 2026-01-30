@@ -2777,6 +2777,59 @@ function comprimirImagem(file, callback) {
     reader.readAsDataURL(file);
 }
 
+// 🆕 Versão moderna da compressão que retorna Promise (para usar com async/await)
+function comprimirImagemModerna(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Define tamanho máximo (1200px na maior dimensão)
+                    const maxSize = 1200;
+                    if (width > height) {
+                        if (width > maxSize) {
+                            height *= maxSize / width;
+                            width = maxSize;
+                        }
+                    } else {
+                        if (height > maxSize) {
+                            width *= maxSize / height;
+                            height = maxSize;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Comprime para JPEG com qualidade 0.75 (75%)
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Falha ao comprimir imagem'));
+                        }
+                    }, 'image/jpeg', 0.75);
+                    
+                } catch(error) {
+                    reject(error);
+                }
+            };
+            img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+            img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+        reader.readAsDataURL(file);
+    });
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🆕 SALVA AUTOMATICAMENTE ANTES DE TIRAR FOTO
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -7309,9 +7362,20 @@ async function anexarFotosGoogleDrive(input) {
                 continue;
             }
             
-            // Cria o blob corretamente
-            const arrayBuffer = await file.arrayBuffer();
-            const blob = new Blob([arrayBuffer], { type: file.type });
+            console.log('📸 Foto original:', file.name, 'Tamanho:', (file.size/1024).toFixed(0)+'KB');
+            
+            // 🆕 COMPRIME A IMAGEM ANTES DE ENVIAR (especialmente importante para fotos da câmera)
+            let blob;
+            if (file.size > 500 * 1024) { // Se maior que 500KB, comprime
+                console.log('🔄 Comprimindo imagem (tamanho > 500KB)...');
+                blob = await comprimirImagemModerna(file);
+                console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
+            } else {
+                // Se já é pequena, usa direto
+                const arrayBuffer = await file.arrayBuffer();
+                blob = new Blob([arrayBuffer], { type: file.type });
+                console.log('✅ Imagem pequena, sem compressão necessária');
+            }
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
             const urlLocal = URL.createObjectURL(blob);
