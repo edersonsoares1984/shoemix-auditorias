@@ -4147,7 +4147,33 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
             
             for (const foto of fotos) {
                 try {
-                    // Usa link direto do Drive
+                    // Cria elemento de loading
+                    const divLoading = document.createElement('div');
+                    divLoading.className = 'foto-item';
+                    divLoading.innerHTML = '<div style="padding:20px;text-align:center;color:#666">📥 Carregando...</div>';
+                    preview.appendChild(divLoading);
+                    
+                    // 🆕 BAIXA A IMAGEM DO DRIVE USANDO A API
+                    const fileResponse = await fetch(
+                        `https://www.googleapis.com/drive/v3/files/${foto.id}?alt=media`,
+                        {
+                            headers: {
+                                'Authorization': 'Bearer ' + accessToken
+                            }
+                        }
+                    );
+                    
+                    if (!fileResponse.ok) {
+                        throw new Error('Erro ao baixar foto: ' + fileResponse.status);
+                    }
+                    
+                    const blob = await fileResponse.blob();
+                    const urlLocal = URL.createObjectURL(blob);
+                    
+                    // Remove loading
+                    preview.removeChild(divLoading);
+                    
+                    // Cria preview da foto
                     const div = document.createElement('div');
                     div.className = 'foto-item';
                     div.setAttribute('data-drive-id', foto.id);
@@ -4163,6 +4189,7 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                         if (confirm('Remover esta foto do Google Drive?')) {
                             try {
                                 await removerFotoDrive(foto.id);
+                                URL.revokeObjectURL(urlLocal); // Libera memória
                                 div.remove();
                                 mostrarToast('✅ Foto removida!', 'sucesso');
                             } catch(error) {
@@ -4172,43 +4199,16 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                         }
                     };
                     
-                    // Cria imagem usando thumbnail do Drive
+                    // Cria imagem usando o blob local
                     const img = document.createElement('img');
+                    img.src = urlLocal;
                     img.alt = 'Foto do Drive';
-                    
-                    // Usa thumbnail do Drive (mais rápido)
-                    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w300`;
-                    
-                    img.src = thumbnailUrl;
-                    img.onerror = async () => {
-                        // Se thumbnail falhar, baixa o arquivo
-                        try {
-                            const fileResponse = await fetch(
-                                `https://www.googleapis.com/drive/v3/files/${foto.id}?alt=media`,
-                                {
-                                    headers: {
-                                        'Authorization': 'Bearer ' + accessToken
-                                    }
-                                }
-                            );
-                            
-                            const blob = await fileResponse.blob();
-                            const url = URL.createObjectURL(blob);
-                            img.src = url;
-                        } catch(e) {
-                            console.error('❌ Erro ao carregar imagem:', e);
-                            img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="120"><rect width="150" height="120" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Erro</text></svg>';
-                        }
-                    };
                     
                     img.onclick = function(){
                         // Ao clicar, abre imagem em tamanho maior
                         const modal = document.getElementById('modalFoto');
                         const modalImg = document.getElementById('imagemModal');
-                        
-                        // Usa URL maior para o modal
-                        const largeUrl = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w1000`;
-                        modalImg.src = largeUrl;
+                        modalImg.src = urlLocal;
                         modal.style.display = 'flex';
                     };
                     
@@ -4216,8 +4216,18 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                     div.appendChild(img);
                     preview.appendChild(div);
                     
+                    console.log('✅ Foto carregada:', foto.name);
+                    
                 } catch(error) {
                     console.error('❌ Erro ao carregar foto individual:', foto.name, error);
+                    // Remove loading se houver erro
+                    const loadings = preview.querySelectorAll('.foto-item');
+                    loadings.forEach(l => {
+                        if (l.innerHTML.includes('Carregando')) {
+                            preview.removeChild(l);
+                        }
+                    });
+                    mostrarToast('⚠️ Erro ao carregar ' + foto.name, 'erro');
                 }
             }
             
@@ -7378,8 +7388,18 @@ async function anexarFotosGoogleDrive(input) {
         }, 2000);
     }
     
-    // Limpa o input para permitir selecionar a mesma foto novamente
-    input.value = '';
+    // 🆕 SOLUÇÃO DEFINITIVA: Substitui o input completamente para limpar texto visível
+    const novoInput = document.createElement('input');
+    novoInput.type = 'file';
+    novoInput.accept = 'image/png,image/jpeg,image/jpg,image/webp';
+    novoInput.className = 'foto-input';
+    novoInput.multiple = true;
+    novoInput.onchange = function() { anexarFoto(this); };
+    novoInput.onfocus = function() { salvarAntesDeFoto(); };
+    novoInput.onclick = function() { salvarAntesDeFoto(); };
+    
+    // Substitui o input antigo pelo novo
+    input.parentNode.replaceChild(novoInput, input);
     
     mostrarToast('✅ ' + enviadas + '/' + total + ' fotos salvas no Drive!', 'sucesso');
 }
