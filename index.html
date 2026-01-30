@@ -2736,7 +2736,7 @@ let lojaAtual=0,visitaEmEdicao=null;
 function criarTabs(){const t=document.getElementById("tabs");t.innerHTML="";lojas.forEach((l,i)=>{const b=document.createElement("button");b.innerHTML=l.replace('-','<br>');b.onclick=()=>trocarLoja(i);if(i===lojaAtual)b.classList.add("active");t.appendChild(b)})}
 function trocarLoja(i){lojaAtual=i;criarTabs();montarTela();carregar();atualizarHistorico();const rm=document.getElementById("resumoMensal"),rg=document.getElementById("resumoGeral");if(rm)rm.style.display="none";if(rg)rg.style.display="none";document.querySelectorAll('.pergunta').forEach(p=>{p.classList.remove('resposta-boa','resposta-ruim','resposta-neutra')})}
 function simNao(txt,id,opcoes="padrao"){let html=`<div class="pergunta">- ${txt}<div class="opcoes">`;if(opcoes==="nf_cx"||opcoes==="etiquetar"){html+=`<label><input type="radio" name="${id}" value="Sim, fora do prazo" onchange="calcularPontuacaoSecao()"> Sim, fora do prazo</label><label><input type="radio" name="${id}" value="Sim, dentro do prazo" onchange="calcularPontuacaoSecao()"> Sim, dentro do prazo</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="impressora"){html+=`<label><input type="radio" name="${id}" value="Sim, solicitado conserto" onchange="calcularPontuacaoSecao()"> Sim, solicitado conserto</label><label><input type="radio" name="${id}" value="Sim, não solicitado" onchange="calcularPontuacaoSecao()"> Sim, não solicitado</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="remanejamento"||opcoes==="lotes"){html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Em Aberto, dentro do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, dentro do prazo</label><label><input type="radio" name="${id}" value="Em Aberto, fora do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, fora do prazo</label>`}else{html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}html+=`</div><textarea id="${id}" placeholder="Descreva quando necessário..."></textarea></div>`;return html}
-function secao(n,t,c,secId){return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/*" class="foto-input" onchange="anexarFoto(this)" onfocus="salvarAntesDeFoto()" onclick="salvarAntesDeFoto()" multiple></label><div class="fotos-preview"></div></div>`}
+function secao(n,t,c,secId){return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" capture="environment" class="foto-input" onchange="anexarFoto(this)" onfocus="salvarAntesDeFoto()" onclick="salvarAntesDeFoto()" multiple></label><div class="fotos-preview"></div></div>`}
 function montarTela(){document.getElementById("app").innerHTML=`<div class="section"><h3 style="color:#f00;text-align:center;margin:0 0 15px 0;padding:10px;background:#f5f5f5;border:2px solid #f00;border-radius:8px">🏪 ${lojas[lojaAtual]}</h3><label>Data:<input type="text" id="data" placeholder="dd/mm/aaaa" oninput="formatarData(this)"></label><label>Objetivo da Visita:<select id="objetivo"><option value="">Selecione...</option><option>Acompanhamento de rotina</option><option>Auditoria de processos</option><option>Treinamento e capacitação</option></select></label><label>Nome do Encarregado:<input type="text" id="encarregado"></label><label>Nome do Gerente Responsável:<input type="text" id="gerente"></label><h3>📂 Histórico de Visitas</h3><button class="collapsible">Mostrar/Esconder Histórico</button><div class="hist-container" style="display:none"><table class="hist-table"><thead><tr><th>Data</th><th>Pontos</th><th>Status</th><th>Ações</th></tr></thead><tbody id="historicoBody"></tbody></table></div></div>${secao(1,"Recebimento de Mercadorias",simNao("Existem Notas Fiscais aguardando recebimento no sistema?","nf","nf_cx")+simNao("Existem volumes com caixas fechadas?","cx","nf_cx")+simNao("Houve erros de recebimento que precisaram de cancelamento?","er"),"1")}${secao(2,"Etiquetagem de Produtos",simNao("Existem mercadorias a serem etiquetadas?","et","etiquetar")+simNao("Etiquetas estão sendo impressas corretamente?","imp")+simNao("Impressora Argox apresenta problemas?","arg","impressora"),"2")}${secao(3,"Organização e Limpeza do Estoque",simNao("Estoque limpo e higienizado?","limpo")+simNao("Área do computador organizada?","pc")+simNao("Checklist online sendo usado corretamente?","check"),"3")}${secao(4,"Organização do Estoque – Corredores",simNao("Corredores alinhados e puxados?","c1")+simNao("Corredores numerados conforme padrão?","c2")+simNao("Produtos organizados por setor?","c3")+simNao("Acesso livre e sem obstruções?","c4"),"4")}${secao(5,"Organização de Confecções e Acessórios",simNao("Setorização correta (Marcas e Modelos)?","f1")+simNao("Armazenamento adequado?","f2"),"5")}${secao(6,"Gatos e Defeitos",simNao("Produtos de gatos identificados e separados?","g1")+simNao("Defeitos transferidos para loja 99?","g2"),"6")}${secao(7,"Transferências e Remanejamentos",simNao("Transferências realizadas corretamente entre lojas?","t1")+simNao("Remanejamentos via sistema realizados corretamente?","t2","remanejamento")+simNao("Lotes em aberto entre lojas estão corretos?","t3","lotes")+simNao("Separação de pés de vitrine correta?","t4"),"7")}<div class="summary" id="summaryBox"><div style="text-align:center;font-size:1.8em;font-weight:700;margin-bottom:15px">📊 RESULTADO DA AVALIAÇÃO</div><div style="display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:20px"><div style="text-align:center"><div style="font-size:3em;font-weight:700;color:#f00" id="totalDisplay">0</div><div style="font-size:1.2em;color:#666">de 21 pontos</div></div><div style="text-align:center;flex:1;min-width:200px"><div style="font-size:2.5em;margin-bottom:10px" id="statusEmoji">⚪</div><div style="font-size:1.5em;font-weight:700;padding:10px 20px;border-radius:10px" id="statusText">Aguardando avaliação</div></div></div><div style="margin-top:20px;padding:15px;background:#f9f9f9;border-radius:8px;font-size:0.9em"><strong>Legenda:</strong> 🟢 18–21 Excelente | 🔵 14–17 Bom | 🟡 10–13 Regular | 🔴 0–9 Insatisfatório</div></div><button class="collapsible">📊 Resumo Mensal</button><div id="resumoMensal" style="display:none;margin-top:10px"></div><button class="collapsible">📊 Resumo Geral</button><div id="resumoGeral" style="display:none;margin-top:10px"></div><div class="section"><h3>Conclusão da Visita</h3><textarea id="conclusao"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px"><div><strong>Assinatura Coordenador:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Gerente:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Encarregado:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div></div></div>`;carregar();calcular();calcularPontuacaoSecao();atualizarHistorico();document.querySelectorAll(".collapsible").forEach(coll=>{coll.onclick=function(){this.classList.toggle("active");const content=this.nextElementSibling;content.style.display=(content.style.display==="block")?"none":"block";if(this.textContent.includes("Resumo Mensal"))resumoMensal();if(this.textContent.includes("Resumo Geral"))resumoGeral()}})}
 function formatarData(el){let v=el.value.replace(/\D/g,'');if(v.length>=3)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>=6)v=v.slice(0,5)+'/'+v.slice(5,9);el.value=v}
 function comprimirImagem(file, callback) {
@@ -3481,6 +3481,10 @@ function novaVisita(){
     document.getElementById("btnCancelarEdicao").style.display="none";
     document.getElementById("btnNovaVisita").style.background="#f00";
     
+    // 🆕 Gera visitaId temporário para esta nova visita
+    window.visitaIdTemporario = 'visita_' + lojaAtual + '_' + Date.now();
+    console.log('🆕 Nova visita iniciada com ID:', window.visitaIdTemporario);
+    
     // Limpa todos os campos
     document.querySelectorAll("input,textarea,select").forEach(el=>{
         if(el.type==="radio") el.checked=false;
@@ -3598,16 +3602,23 @@ async function salvar(aviso=false){
     }
     
     // ============================================
-    // 🆕 NOVO: Salva fotos no IndexedDB
+    // 🆕 NOVO: Salva fotos no IndexedDB ou registra fotos do Drive
     // ============================================
     let visitaId;
     
     try {
-        // Gera ID único para esta visita
-        visitaId = 'visita_' + lojaAtual + '_' + Date.now();
+        // 🆕 Usa visitaId temporário se existir, senão gera novo
+        if (window.visitaIdTemporario) {
+            visitaId = window.visitaIdTemporario;
+            console.log('📝 Usando visitaId temporário:', visitaId);
+        } else {
+            visitaId = 'visita_' + lojaAtual + '_' + Date.now();
+            console.log('🆕 Gerando novo visitaId:', visitaId);
+        }
+        
         dados.visitaId = visitaId; // Guarda no dados
         
-        console.log('📸 Iniciando salvamento de fotos no IndexedDB...');
+        console.log('📸 Iniciando salvamento de fotos...');
         let totalFotosSalvas = 0;
         
         // Percorre cada seção e salva as fotos
@@ -3617,22 +3628,49 @@ async function salvar(aviso=false){
             
             const fotosDivs = secao.querySelectorAll('.foto-item');
             
-            for (const fotoDiv of fotosDivs) {
-                const fotoId = fotoDiv.getAttribute('data-foto-id');
+            // ☁️ Se usa Google Drive, salva apenas os IDs
+            if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+                const fotosIDs = [];
                 
-                // Verifica se tem foto temporária (recém anexada)
-                const blob = window.fotosTemporarias?.[fotoId];
+                for (const fotoDiv of fotosDivs) {
+                    const driveId = fotoDiv.getAttribute('data-drive-id');
+                    const driveUrl = fotoDiv.getAttribute('data-drive-url');
+                    
+                    if (driveId) {
+                        fotosIDs.push({
+                            driveId: driveId,
+                            driveUrl: driveUrl,
+                            secaoId: secaoId
+                        });
+                        totalFotosSalvas++;
+                    }
+                }
                 
-                if (blob) {
-                    // Salva no IndexedDB
-                    const dbId = await salvarFotoDB(blob, visitaId, secaoId);
-                    console.log(`✅ Foto ${fotoId} → IndexedDB ID: ${dbId}`);
+                // Salva IDs no localStorage como parte dos dados
+                if (fotosIDs.length > 0) {
+                    dados['fotos_drive_' + secaoId] = JSON.stringify(fotosIDs);
+                    console.log(`✅ ${fotosIDs.length} fotos do Drive registradas para seção ${secaoId}`);
+                }
+                
+            } else {
+                // 💾 Se não usa Google Drive, salva no IndexedDB
+                for (const fotoDiv of fotosDivs) {
+                    const fotoId = fotoDiv.getAttribute('data-foto-id');
                     
-                    // Marca como salva
-                    fotoDiv.setAttribute('data-db-id', dbId);
-                    fotoDiv.removeAttribute('data-foto-id'); // Remove ID temporário
+                    // Verifica se tem foto temporária (recém anexada)
+                    const blob = window.fotosTemporarias?.[fotoId];
                     
-                    totalFotosSalvas++;
+                    if (blob) {
+                        // Salva no IndexedDB
+                        const dbId = await salvarFotoDB(blob, visitaId, secaoId);
+                        console.log(`✅ Foto ${fotoId} → IndexedDB ID: ${dbId}`);
+                        
+                        // Marca como salva
+                        fotoDiv.setAttribute('data-db-id', dbId);
+                        fotoDiv.removeAttribute('data-foto-id'); // Remove ID temporário
+                        
+                        totalFotosSalvas++;
+                    }
                 }
             }
         }
@@ -3640,11 +3678,11 @@ async function salvar(aviso=false){
         // Limpa temporários após salvar
         window.fotosTemporarias = {};
         
-        console.log(`✅ ${totalFotosSalvas} fotos salvas no IndexedDB para visita ${visitaId}`);
+        console.log(`✅ ${totalFotosSalvas} fotos salvas para visita ${visitaId}`);
         
     } catch(error) {
         console.error('❌ Erro ao salvar fotos:', error);
-        alert('⚠️ Erro ao salvar fotos no banco de dados: ' + error.message);
+        alert('⚠️ Erro ao salvar fotos: ' + error.message);
         return; // Não continua se falhar
     }
     
@@ -3671,6 +3709,10 @@ async function salvar(aviso=false){
             dados,
             visitaId: visitaId
         });
+        
+        // 🆕 Limpa visitaId temporário após salvar
+        window.visitaIdTemporario = null;
+        console.log('🧹 visitaIdTemporario limpo após salvamento');
         
         // ✅ CORREÇÃO: Limita a 50 visitas mais recentes
         hist = manterHistoricoRecente(hist, 50);
@@ -3942,77 +3984,85 @@ async function carregarVisita(i){
     });
     
     // ============================================
-    // 🆕 CARREGA FOTOS DO INDEXEDDB
+    // 🆕 CARREGA FOTOS DO GOOGLE DRIVE OU INDEXEDDB
     // ============================================
     const visitaId = visita.visitaId || d.visitaId;
     
     if (visitaId) {
         console.log('📸 Carregando fotos da visita em edição:', visitaId);
         
-        for (const secao of document.querySelectorAll(".section")) {
-            const secaoId = secao.getAttribute("data-secao");
-            if (!secaoId) continue;
+        // Verifica se usa Google Drive ou IndexedDB
+        if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+            console.log('☁️ Carregando fotos do Google Drive...');
+            await carregarFotosGoogleDriveNaEdicao(visitaId);
+        } else {
+            console.log('💾 Carregando fotos do IndexedDB...');
             
-            const preview = secao.querySelector('.fotos-preview');
-            if (!preview) continue;
-            
-            try {
-                // Busca fotos desta seção no IndexedDB
-                const fotos = await buscarFotosSecao(visitaId, secaoId);
+            for (const secao of document.querySelectorAll(".section")) {
+                const secaoId = secao.getAttribute("data-secao");
+                if (!secaoId) continue;
                 
-                if (fotos.length > 0) {
-                    preview.innerHTML = ''; // Limpa preview
+                const preview = secao.querySelector('.fotos-preview');
+                if (!preview) continue;
+                
+                try {
+                    // Busca fotos desta seção no IndexedDB
+                    const fotos = await buscarFotosSecao(visitaId, secaoId);
                     
-                    fotos.forEach(foto => {
-                        // Cria URL do Blob
-                        const url = URL.createObjectURL(foto.blob);
+                    if (fotos.length > 0) {
+                        preview.innerHTML = ''; // Limpa preview
                         
-                        // Cria elemento visual
-                        const div = document.createElement('div');
-                        div.className = 'foto-item';
-                        div.setAttribute('data-db-id', foto.id); // ID do banco
-                        
-                        const btnRemover = document.createElement('button');
-                        btnRemover.className = 'remover-foto';
-                        btnRemover.type = 'button';
-                        btnRemover.innerHTML = '×';
-                        btnRemover.onclick = async function(event){
-                            event.stopPropagation();
-                            event.preventDefault();
+                        fotos.forEach(foto => {
+                            // Cria URL do Blob
+                            const url = URL.createObjectURL(foto.blob);
                             
-                            if(!confirm('Deseja remover esta foto?')) return;
+                            // Cria elemento visual
+                            const div = document.createElement('div');
+                            div.className = 'foto-item';
+                            div.setAttribute('data-db-id', foto.id); // ID do banco
                             
-                            try {
-                                await removerFotoDB(foto.id);
-                                URL.revokeObjectURL(url); // Libera memória
-                                div.remove();
-                                console.log('✅ Foto removida do IndexedDB');
-                            } catch(error) {
-                                console.error('❌ Erro ao remover foto:', error);
-                                alert('⚠️ Erro ao remover foto');
-                            }
-                        };
+                            const btnRemover = document.createElement('button');
+                            btnRemover.className = 'remover-foto';
+                            btnRemover.type = 'button';
+                            btnRemover.innerHTML = '×';
+                            btnRemover.onclick = async function(event){
+                                event.stopPropagation();
+                                event.preventDefault();
+                                
+                                if(!confirm('Deseja remover esta foto?')) return;
+                                
+                                try {
+                                    await removerFotoDB(foto.id);
+                                    URL.revokeObjectURL(url); // Libera memória
+                                    div.remove();
+                                    console.log('✅ Foto removida do IndexedDB');
+                                } catch(error) {
+                                    console.error('❌ Erro ao remover foto:', error);
+                                    alert('⚠️ Erro ao remover foto');
+                                }
+                            };
+                            
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.alt = 'Foto';
+                            img.onclick = function(){
+                                const modal = document.getElementById('modalFoto');
+                                const modalImg = document.getElementById('imagemModal');
+                                modalImg.src = url;
+                                modal.style.display = 'flex';
+                            };
+                            
+                            div.appendChild(btnRemover);
+                            div.appendChild(img);
+                            preview.appendChild(div);
+                        });
                         
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.alt = 'Foto';
-                        img.onclick = function(){
-                            const modal = document.getElementById('modalFoto');
-                            const modalImg = document.getElementById('imagemModal');
-                            modalImg.src = url;
-                            modal.style.display = 'flex';
-                        };
-                        
-                        div.appendChild(btnRemover);
-                        div.appendChild(img);
-                        preview.appendChild(div);
-                    });
+                        console.log(`✅ ${fotos.length} fotos carregadas da seção ${secaoId} (IndexedDB)`);
+                    }
                     
-                    console.log(`✅ ${fotos.length} fotos carregadas da seção ${secaoId} (edição)`);
+                } catch(error) {
+                    console.error(`❌ Erro ao carregar fotos da seção ${secaoId}:`, error);
                 }
-                
-            } catch(error) {
-                console.error(`❌ Erro ao carregar fotos da seção ${secaoId}:`, error);
             }
         }
     } else {
@@ -4023,10 +4073,174 @@ async function carregarVisita(i){
     calcularPontuacaoSecao();
     alert("✅ Visita carregada com fotos!");
 }
+
+// 🆕 Função para carregar fotos do Google Drive ao editar
+async function carregarFotosGoogleDriveNaEdicao(visitaId) {
+    try {
+        console.log('☁️ Buscando fotos no Google Drive para visita:', visitaId);
+        
+        // Busca fotos com o nome que contém o visitaId
+        const searchQuery = `name contains '${visitaId}' and mimeType contains 'image/' and trashed=false`;
+        
+        const response = await gapi.client.drive.files.list({
+            q: searchQuery,
+            fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+            pageSize: 100,
+            orderBy: 'name'
+        });
+        
+        const arquivos = response.result.files || [];
+        console.log(`📸 Encontradas ${arquivos.length} fotos para visita ${visitaId}`);
+        
+        if (arquivos.length === 0) {
+            console.log('⚠️ Nenhuma foto encontrada no Google Drive para esta visita');
+            return;
+        }
+        
+        // Agrupa fotos por seção
+        const fotosPorSecao = {};
+        
+        arquivos.forEach(arquivo => {
+            // Nome do formato: visitaId_secaoId_timestamp_nome.jpg
+            const partes = arquivo.name.split('_');
+            
+            // Valida que começa com o visitaId correto
+            if (!arquivo.name.startsWith(visitaId)) {
+                console.log('⏭️ Pulando foto que não pertence a esta visita:', arquivo.name);
+                return;
+            }
+            
+            // Extrai secaoId (segunda parte após o visitaId)
+            // visitaId tem formato: visita_LOJA_TIMESTAMP
+            // então precisamos pular 3 partes iniciais
+            const secaoId = partes[3]; // [visita, LOJA, TIMESTAMP, SECAOID, ...]
+            
+            if (!secaoId) {
+                console.log('⚠️ Não foi possível extrair secaoId de:', arquivo.name);
+                return;
+            }
+            
+            if (!fotosPorSecao[secaoId]) {
+                fotosPorSecao[secaoId] = [];
+            }
+            
+            fotosPorSecao[secaoId].push(arquivo);
+        });
+        
+        console.log('📂 Fotos agrupadas por seção:', Object.keys(fotosPorSecao));
+        
+        // Exibe fotos em cada seção
+        for (const [secaoId, fotos] of Object.entries(fotosPorSecao)) {
+            const secao = document.querySelector(`[data-secao="${secaoId}"]`);
+            if (!secao) {
+                console.log(`⚠️ Seção ${secaoId} não encontrada no DOM`);
+                continue;
+            }
+            
+            const preview = secao.querySelector('.fotos-preview');
+            if (!preview) {
+                console.log(`⚠️ Preview não encontrado para seção ${secaoId}`);
+                continue;
+            }
+            
+            preview.innerHTML = ''; // Limpa preview
+            
+            for (const foto of fotos) {
+                try {
+                    // Usa link direto do Drive
+                    const div = document.createElement('div');
+                    div.className = 'foto-item';
+                    div.setAttribute('data-drive-id', foto.id);
+                    div.setAttribute('data-drive-url', foto.webViewLink || foto.webContentLink);
+                    div.setAttribute('data-secao-id', secaoId);
+                    
+                    const btnRemover = document.createElement('button');
+                    btnRemover.className = 'remover-foto';
+                    btnRemover.type = 'button';
+                    btnRemover.innerHTML = '×';
+                    btnRemover.onclick = async (e) => {
+                        e.stopPropagation();
+                        if (confirm('Remover esta foto do Google Drive?')) {
+                            try {
+                                await removerFotoDrive(foto.id);
+                                div.remove();
+                                mostrarToast('✅ Foto removida!', 'sucesso');
+                            } catch(error) {
+                                console.error('Erro ao remover:', error);
+                                mostrarToast('❌ Erro ao remover foto', 'erro');
+                            }
+                        }
+                    };
+                    
+                    // Cria imagem usando thumbnail do Drive
+                    const img = document.createElement('img');
+                    img.alt = 'Foto do Drive';
+                    
+                    // Usa thumbnail do Drive (mais rápido)
+                    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w300`;
+                    
+                    img.src = thumbnailUrl;
+                    img.onerror = async () => {
+                        // Se thumbnail falhar, baixa o arquivo
+                        try {
+                            const fileResponse = await fetch(
+                                `https://www.googleapis.com/drive/v3/files/${foto.id}?alt=media`,
+                                {
+                                    headers: {
+                                        'Authorization': 'Bearer ' + accessToken
+                                    }
+                                }
+                            );
+                            
+                            const blob = await fileResponse.blob();
+                            const url = URL.createObjectURL(blob);
+                            img.src = url;
+                        } catch(e) {
+                            console.error('❌ Erro ao carregar imagem:', e);
+                            img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="120"><rect width="150" height="120" fill="%23f0f0f0"/><text x="50%" y="50%" text-anchor="middle" fill="%23999">Erro</text></svg>';
+                        }
+                    };
+                    
+                    img.onclick = function(){
+                        // Ao clicar, abre imagem em tamanho maior
+                        const modal = document.getElementById('modalFoto');
+                        const modalImg = document.getElementById('imagemModal');
+                        
+                        // Usa URL maior para o modal
+                        const largeUrl = `https://drive.google.com/thumbnail?id=${foto.id}&sz=w1000`;
+                        modalImg.src = largeUrl;
+                        modal.style.display = 'flex';
+                    };
+                    
+                    div.appendChild(btnRemover);
+                    div.appendChild(img);
+                    preview.appendChild(div);
+                    
+                } catch(error) {
+                    console.error('❌ Erro ao carregar foto individual:', foto.name, error);
+                }
+            }
+            
+            console.log(`✅ ${fotos.length} fotos carregadas da seção ${secaoId} (Google Drive)`);
+        }
+        
+    } catch(error) {
+        console.error('❌ Erro ao carregar fotos do Google Drive:', error);
+        mostrarToast('⚠️ Erro ao carregar fotos do Drive', 'erro');
+    }
+}
 async function editarVisita(i){
     visitaEmEdicao=i;
     document.getElementById("btnCancelarEdicao").style.display="inline-block";
     document.getElementById("btnNovaVisita").style.background="#ff6600";
+    
+    // 🆕 Carrega visitaId da visita em edição
+    const h=JSON.parse(localStorage.getItem("hist_"+lojaAtual)||"[]");
+    const visita=h[i];
+    if (visita && visita.visitaId) {
+        window.visitaIdTemporario = visita.visitaId;
+        console.log('📝 Modo edição: usando visitaId da visita:', visita.visitaId);
+    }
     
     // Carrega a visita (agora com fotos)
     await carregarVisita(i);
@@ -4034,7 +4248,28 @@ async function editarVisita(i){
     window.scrollTo(0,0);
     alert("✏️ Modo de Edição ativado!\n\n💾 Salvar = ATUALIZAR\n🆕 Nova Visita = CRIAR nova\n❌ Cancelar Edição = desistir");
 }
-function cancelarEdicao(){if(!confirm("Cancelar edição? Alterações não salvas serão perdidas."))return;visitaEmEdicao=null;document.getElementById("btnCancelarEdicao").style.display="none";document.getElementById("btnNovaVisita").style.background="#f00";document.querySelectorAll("input,textarea,select").forEach(el=>{if(el.type==="radio")el.checked=false;else el.value=""});document.querySelectorAll('.fotos-preview').forEach(p=>p.innerHTML='');document.querySelectorAll('.pergunta').forEach(p=>{p.classList.remove('resposta-boa','resposta-ruim','resposta-neutra')});calcular();alert("✅ Edição cancelada!")}
+function cancelarEdicao(){
+    if(!confirm("Cancelar edição? Alterações não salvas serão perdidas.")) return;
+    
+    visitaEmEdicao=null;
+    window.visitaIdTemporario=null; // 🆕 Limpa visitaId temporário
+    
+    document.getElementById("btnCancelarEdicao").style.display="none";
+    document.getElementById("btnNovaVisita").style.background="#f00";
+    
+    document.querySelectorAll("input,textarea,select").forEach(el=>{
+        if(el.type==="radio") el.checked=false;
+        else el.value="";
+    });
+    
+    document.querySelectorAll('.fotos-preview').forEach(p=>p.innerHTML='');
+    document.querySelectorAll('.pergunta').forEach(p=>{
+        p.classList.remove('resposta-boa','resposta-ruim','resposta-neutra');
+    });
+    
+    calcular();
+    alert("✅ Edição cancelada!");
+}
 function excluirVisita(i){if(!confirm("Deseja excluir esta visita?"))return;const h=JSON.parse(localStorage.getItem("hist_"+lojaAtual)||"[]");h.splice(i,1);localStorage.setItem("hist_"+lojaAtual,JSON.stringify(h));atualizarHistorico()}
 function exportarPDF(){window.print()}
 async function exportarJSON(){
@@ -7058,24 +7293,44 @@ async function anexarFotosGoogleDrive(input) {
     
     for (const file of arquivos) {
         try {
+            // Validação de tipo de arquivo
+            if(!file.type.startsWith('image/')) {
+                mostrarToast('⚠️ Apenas imagens são permitidas!', 'erro');
+                continue;
+            }
+            
             if (statusText) statusText.textContent = 'Enviando ' + file.name + '...';
             
-            const blob = new Blob([await file.arrayBuffer()], { type: file.type });
-            const nomeArquivo = secaoId + '_' + Date.now() + '_' + file.name;
+            // Cria o blob corretamente
+            const arrayBuffer = await file.arrayBuffer();
+            const blob = new Blob([arrayBuffer], { type: file.type });
+            
+            // 🆕 Usa visitaId (temporário ou de edição) no nome do arquivo
+            const visitaId = window.visitaIdTemporario || 'sem_visita';
+            const nomeArquivo = visitaId + '_' + secaoId + '_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            
+            console.log('📤 Enviando foto:', nomeArquivo, 'Tipo:', file.type, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
             
             const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
             
-            // Cria visualização
+            // Cria visualização IMEDIATAMENTE
             const div = document.createElement('div');
             div.className = 'foto-item';
             div.setAttribute('data-drive-id', resultado.id);
             div.setAttribute('data-drive-url', resultado.url);
+            div.setAttribute('data-secao-id', secaoId);
             
-            const url = URL.createObjectURL(blob);
+            // Cria URL local para preview
+            const urlLocal = URL.createObjectURL(blob);
             const img = document.createElement('img');
-            img.src = url;
-            img.alt = 'Foto';
-            img.onclick = () => window.open(resultado.url, '_blank');
+            img.src = urlLocal;
+            img.alt = 'Foto anexada';
+            img.onclick = () => {
+                const modal = document.getElementById('modalFoto');
+                const modalImg = document.getElementById('imagemModal');
+                modalImg.src = urlLocal;
+                modal.style.display = 'flex';
+            };
             
             const btnRemover = document.createElement('button');
             btnRemover.className = 'remover-foto';
@@ -7083,9 +7338,16 @@ async function anexarFotosGoogleDrive(input) {
             btnRemover.innerHTML = '×';
             btnRemover.onclick = async (e) => {
                 e.stopPropagation();
-                if (confirm('Remover esta foto?')) {
-                    await removerFotoDrive(resultado.id);
-                    div.remove();
+                if (confirm('Remover esta foto do Google Drive?')) {
+                    try {
+                        await removerFotoDrive(resultado.id);
+                        URL.revokeObjectURL(urlLocal);
+                        div.remove();
+                        mostrarToast('✅ Foto removida!', 'sucesso');
+                    } catch(error) {
+                        console.error('Erro ao remover:', error);
+                        mostrarToast('❌ Erro ao remover foto', 'erro');
+                    }
                 }
             };
             
@@ -7101,10 +7363,11 @@ async function anexarFotosGoogleDrive(input) {
             }
             if (detailsText) detailsText.textContent = enviadas + ' de ' + total + ' fotos enviadas';
             
+            console.log('✅ Foto enviada e preview criado:', nomeArquivo);
             mostrarToast('✅ Foto ' + enviadas + '/' + total + ' enviada!');
             
         } catch (e) {
-            console.error('❌ Erro:', e);
+            console.error('❌ Erro ao enviar foto:', e);
             mostrarToast('❌ Erro ao enviar ' + file.name, 'erro');
         }
     }
@@ -7115,7 +7378,10 @@ async function anexarFotosGoogleDrive(input) {
         }, 2000);
     }
     
-    mostrarToast('✅ ' + enviadas + '/' + total + ' fotos no Drive!');
+    // Limpa o input para permitir selecionar a mesma foto novamente
+    input.value = '';
+    
+    mostrarToast('✅ ' + enviadas + '/' + total + ' fotos salvas no Drive!', 'sucesso');
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
