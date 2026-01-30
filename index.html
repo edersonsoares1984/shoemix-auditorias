@@ -2789,8 +2789,8 @@ function comprimirImagemModerna(file) {
                     let width = img.width;
                     let height = img.height;
                     
-                    // Define tamanho máximo (1200px na maior dimensão)
-                    const maxSize = 1200;
+                    // 🆕 Define tamanho máximo MENOR (800px) para compressão mais agressiva
+                    const maxSize = 800;
                     if (width > height) {
                         if (width > maxSize) {
                             height *= maxSize / width;
@@ -2809,14 +2809,14 @@ function comprimirImagemModerna(file) {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // Comprime para JPEG com qualidade 0.75 (75%)
+                    // 🆕 Comprime para JPEG com qualidade 0.6 (60%) - mais agressivo
                     canvas.toBlob((blob) => {
                         if (blob) {
                             resolve(blob);
                         } else {
                             reject(new Error('Falha ao comprimir imagem'));
                         }
-                    }, 'image/jpeg', 0.75);
+                    }, 'image/jpeg', 0.6);
                     
                 } catch(error) {
                     reject(error);
@@ -4131,22 +4131,34 @@ async function carregarVisita(i){
 async function carregarFotosGoogleDriveNaEdicao(visitaId) {
     try {
         console.log('☁️ Buscando fotos no Google Drive para visita:', visitaId);
+        mostrarToast('📥 Carregando fotos do Drive...', 'info');
         
-        // Busca fotos com o nome que contém o visitaId
+        // 🆕 Busca mais ampla - procura por qualquer parte do visitaId
+        // Formato do arquivo: visitaId_secaoId_timestamp_nome.jpg
+        // Ex: visita_0_1738267890123_1_1738267891234_foto.jpg
         const searchQuery = `name contains '${visitaId}' and mimeType contains 'image/' and trashed=false`;
+        
+        console.log('🔍 Query de busca:', searchQuery);
         
         const response = await gapi.client.drive.files.list({
             q: searchQuery,
-            fields: 'files(id, name, webViewLink, webContentLink, mimeType)',
+            fields: 'files(id, name, webViewLink, webContentLink, mimeType, createdTime)',
             pageSize: 100,
-            orderBy: 'name'
+            orderBy: 'createdTime desc'
         });
         
         const arquivos = response.result.files || [];
         console.log(`📸 Encontradas ${arquivos.length} fotos para visita ${visitaId}`);
         
-        if (arquivos.length === 0) {
+        // 🆕 Log detalhado dos arquivos encontrados
+        if (arquivos.length > 0) {
+            console.log('📋 Lista de arquivos encontrados:');
+            arquivos.forEach((arquivo, index) => {
+                console.log(`  ${index + 1}. ${arquivo.name} (ID: ${arquivo.id})`);
+            });
+        } else {
             console.log('⚠️ Nenhuma foto encontrada no Google Drive para esta visita');
+            mostrarToast('⚠️ Nenhuma foto encontrada', 'aviso');
             return;
         }
         
@@ -4154,24 +4166,43 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
         const fotosPorSecao = {};
         
         arquivos.forEach(arquivo => {
+            console.log(`📄 Processando arquivo: ${arquivo.name}`);
+            
             // Nome do formato: visitaId_secaoId_timestamp_nome.jpg
+            // Ex: visita_0_1738267890123_1_1738267891234_foto.jpg
             const partes = arquivo.name.split('_');
+            console.log(`   Partes do nome: ${partes.join(' | ')}`);
             
             // Valida que começa com o visitaId correto
             if (!arquivo.name.startsWith(visitaId)) {
-                console.log('⏭️ Pulando foto que não pertence a esta visita:', arquivo.name);
+                console.log(`   ⏭️ Pulando: não começa com ${visitaId}`);
                 return;
             }
             
-            // Extrai secaoId (segunda parte após o visitaId)
-            // visitaId tem formato: visita_LOJA_TIMESTAMP
-            // então precisamos pular 3 partes iniciais
-            const secaoId = partes[3]; // [visita, LOJA, TIMESTAMP, SECAOID, ...]
+            // 🆕 Extrai secaoId de forma mais robusta
+            // O formato é: visita_LOJA_TIMESTAMP_SECAOID_TIMESTAMP2_nome.jpg
+            // Então: [0]=visita, [1]=LOJA, [2]=TIMESTAMP, [3]=SECAOID
+            let secaoId = partes[3];
+            
+            // Se não encontrou na posição 3, tenta encontrar um número
+            if (!secaoId || isNaN(secaoId)) {
+                console.log(`   ⚠️ secaoId não encontrado em posição 3, procurando número...`);
+                // Procura o primeiro número nas partes (que seria a seção)
+                for (let i = 0; i < partes.length; i++) {
+                    if (!isNaN(partes[i]) && partes[i].length <= 2) { // Seção tem 1 ou 2 dígitos
+                        secaoId = partes[i];
+                        console.log(`   ✅ secaoId encontrado: ${secaoId} (posição ${i})`);
+                        break;
+                    }
+                }
+            }
             
             if (!secaoId) {
-                console.log('⚠️ Não foi possível extrair secaoId de:', arquivo.name);
+                console.log(`   ❌ Não foi possível extrair secaoId de: ${arquivo.name}`);
                 return;
             }
+            
+            console.log(`   ✅ Foto da seção ${secaoId}`);
             
             if (!fotosPorSecao[secaoId]) {
                 fotosPorSecao[secaoId] = [];
@@ -4181,6 +4212,12 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
         });
         
         console.log('📂 Fotos agrupadas por seção:', Object.keys(fotosPorSecao));
+        
+        if (Object.keys(fotosPorSecao).length === 0) {
+            console.log('⚠️ Nenhuma foto foi categorizada por seção');
+            mostrarToast('⚠️ Fotos encontradas mas não categorizadas', 'aviso');
+            return;
+        }
         
         // Exibe fotos em cada seção
         for (const [secaoId, fotos] of Object.entries(fotosPorSecao)) {
@@ -7366,10 +7403,12 @@ async function anexarFotosGoogleDrive(input) {
             
             // 🆕 COMPRIME A IMAGEM ANTES DE ENVIAR (especialmente importante para fotos da câmera)
             let blob;
-            if (file.size > 500 * 1024) { // Se maior que 500KB, comprime
-                console.log('🔄 Comprimindo imagem (tamanho > 500KB)...');
+            if (file.size > 300 * 1024) { // Se maior que 300KB, comprime
+                console.log('🔄 Comprimindo imagem (tamanho > 300KB)...');
+                mostrarToast('🔄 Comprimindo foto...', 'info');
                 blob = await comprimirImagemModerna(file);
                 console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
+                mostrarToast('✅ Foto comprimida: ' + (blob.size/1024).toFixed(0)+'KB', 'sucesso');
             } else {
                 // Se já é pequena, usa direto
                 const arrayBuffer = await file.arrayBuffer();
