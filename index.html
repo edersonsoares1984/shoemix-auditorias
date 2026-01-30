@@ -200,6 +200,10 @@ tr:nth-child(even){background:#f9f9f9}
 .backup-status{position:fixed;top:70px;right:10px;background:#fff;border:2px solid #28a745;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9998;font-size:0.8em;opacity:0;transition:opacity 0.3s}
 .backup-status.show{opacity:1}
 .backup-status.erro{border-color:#dc3545}
+/* 🆕 Indicador de Auto-Save (aparece quando salva antes de tirar foto) */
+.autosave-info{position:fixed;top:130px;right:10px;background:#fff;border:2px solid #17a2b8;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9997;font-size:0.75em;max-width:200px;line-height:1.4}
+.autosave-info strong{color:#17a2b8;display:block;margin-bottom:4px}
+@media (max-width:768px){.autosave-info{font-size:0.7em;max-width:160px;padding:6px 10px}}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 /* 🌐 INDICADOR DE CONEXÃO ONLINE/OFFLINE */
@@ -1082,6 +1086,12 @@ tr:nth-child(even){background:#f9f9f9}
     <div style="font-weight:700;font-size:0.85em">☁️ Google Drive</div>
     <div id="syncText" style="font-size:0.75em;color:#666">Iniciando...</div>
   </div>
+</div>
+
+<!-- 🆕 INDICADOR DE AUTO-SAVE (aparece temporariamente) -->
+<div class="autosave-info" id="autosaveInfo">
+  <strong>💾 Auto-Save Ativo</strong>
+  Suas respostas são salvas automaticamente. Pode tirar fotos sem medo!
 </div>
 
 <!-- 🆕 PAINEL DE STATUS DETALHADO DAS APIs -->
@@ -2726,7 +2736,7 @@ let lojaAtual=0,visitaEmEdicao=null;
 function criarTabs(){const t=document.getElementById("tabs");t.innerHTML="";lojas.forEach((l,i)=>{const b=document.createElement("button");b.innerHTML=l.replace('-','<br>');b.onclick=()=>trocarLoja(i);if(i===lojaAtual)b.classList.add("active");t.appendChild(b)})}
 function trocarLoja(i){lojaAtual=i;criarTabs();montarTela();carregar();atualizarHistorico();const rm=document.getElementById("resumoMensal"),rg=document.getElementById("resumoGeral");if(rm)rm.style.display="none";if(rg)rg.style.display="none";document.querySelectorAll('.pergunta').forEach(p=>{p.classList.remove('resposta-boa','resposta-ruim','resposta-neutra')})}
 function simNao(txt,id,opcoes="padrao"){let html=`<div class="pergunta">- ${txt}<div class="opcoes">`;if(opcoes==="nf_cx"||opcoes==="etiquetar"){html+=`<label><input type="radio" name="${id}" value="Sim, fora do prazo" onchange="calcularPontuacaoSecao()"> Sim, fora do prazo</label><label><input type="radio" name="${id}" value="Sim, dentro do prazo" onchange="calcularPontuacaoSecao()"> Sim, dentro do prazo</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="impressora"){html+=`<label><input type="radio" name="${id}" value="Sim, solicitado conserto" onchange="calcularPontuacaoSecao()"> Sim, solicitado conserto</label><label><input type="radio" name="${id}" value="Sim, não solicitado" onchange="calcularPontuacaoSecao()"> Sim, não solicitado</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="remanejamento"||opcoes==="lotes"){html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Em Aberto, dentro do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, dentro do prazo</label><label><input type="radio" name="${id}" value="Em Aberto, fora do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, fora do prazo</label>`}else{html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}html+=`</div><textarea id="${id}" placeholder="Descreva quando necessário..."></textarea></div>`;return html}
-function secao(n,t,c,secId){return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/*" class="foto-input" onchange="anexarFoto(this)" multiple></label><div class="fotos-preview"></div></div>`}
+function secao(n,t,c,secId){return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/*" class="foto-input" onchange="anexarFoto(this)" onfocus="salvarAntesDeFoto()" onclick="salvarAntesDeFoto()" multiple></label><div class="fotos-preview"></div></div>`}
 function montarTela(){document.getElementById("app").innerHTML=`<div class="section"><h3 style="color:#f00;text-align:center;margin:0 0 15px 0;padding:10px;background:#f5f5f5;border:2px solid #f00;border-radius:8px">🏪 ${lojas[lojaAtual]}</h3><label>Data:<input type="text" id="data" placeholder="dd/mm/aaaa" oninput="formatarData(this)"></label><label>Objetivo da Visita:<select id="objetivo"><option value="">Selecione...</option><option>Acompanhamento de rotina</option><option>Auditoria de processos</option><option>Treinamento e capacitação</option></select></label><label>Nome do Encarregado:<input type="text" id="encarregado"></label><label>Nome do Gerente Responsável:<input type="text" id="gerente"></label><h3>📂 Histórico de Visitas</h3><button class="collapsible">Mostrar/Esconder Histórico</button><div class="hist-container" style="display:none"><table class="hist-table"><thead><tr><th>Data</th><th>Pontos</th><th>Status</th><th>Ações</th></tr></thead><tbody id="historicoBody"></tbody></table></div></div>${secao(1,"Recebimento de Mercadorias",simNao("Existem Notas Fiscais aguardando recebimento no sistema?","nf","nf_cx")+simNao("Existem volumes com caixas fechadas?","cx","nf_cx")+simNao("Houve erros de recebimento que precisaram de cancelamento?","er"),"1")}${secao(2,"Etiquetagem de Produtos",simNao("Existem mercadorias a serem etiquetadas?","et","etiquetar")+simNao("Etiquetas estão sendo impressas corretamente?","imp")+simNao("Impressora Argox apresenta problemas?","arg","impressora"),"2")}${secao(3,"Organização e Limpeza do Estoque",simNao("Estoque limpo e higienizado?","limpo")+simNao("Área do computador organizada?","pc")+simNao("Checklist online sendo usado corretamente?","check"),"3")}${secao(4,"Organização do Estoque – Corredores",simNao("Corredores alinhados e puxados?","c1")+simNao("Corredores numerados conforme padrão?","c2")+simNao("Produtos organizados por setor?","c3")+simNao("Acesso livre e sem obstruções?","c4"),"4")}${secao(5,"Organização de Confecções e Acessórios",simNao("Setorização correta (Marcas e Modelos)?","f1")+simNao("Armazenamento adequado?","f2"),"5")}${secao(6,"Gatos e Defeitos",simNao("Produtos de gatos identificados e separados?","g1")+simNao("Defeitos transferidos para loja 99?","g2"),"6")}${secao(7,"Transferências e Remanejamentos",simNao("Transferências realizadas corretamente entre lojas?","t1")+simNao("Remanejamentos via sistema realizados corretamente?","t2","remanejamento")+simNao("Lotes em aberto entre lojas estão corretos?","t3","lotes")+simNao("Separação de pés de vitrine correta?","t4"),"7")}<div class="summary" id="summaryBox"><div style="text-align:center;font-size:1.8em;font-weight:700;margin-bottom:15px">📊 RESULTADO DA AVALIAÇÃO</div><div style="display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:20px"><div style="text-align:center"><div style="font-size:3em;font-weight:700;color:#f00" id="totalDisplay">0</div><div style="font-size:1.2em;color:#666">de 21 pontos</div></div><div style="text-align:center;flex:1;min-width:200px"><div style="font-size:2.5em;margin-bottom:10px" id="statusEmoji">⚪</div><div style="font-size:1.5em;font-weight:700;padding:10px 20px;border-radius:10px" id="statusText">Aguardando avaliação</div></div></div><div style="margin-top:20px;padding:15px;background:#f9f9f9;border-radius:8px;font-size:0.9em"><strong>Legenda:</strong> 🟢 18–21 Excelente | 🔵 14–17 Bom | 🟡 10–13 Regular | 🔴 0–9 Insatisfatório</div></div><button class="collapsible">📊 Resumo Mensal</button><div id="resumoMensal" style="display:none;margin-top:10px"></div><button class="collapsible">📊 Resumo Geral</button><div id="resumoGeral" style="display:none;margin-top:10px"></div><div class="section"><h3>Conclusão da Visita</h3><textarea id="conclusao"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px"><div><strong>Assinatura Coordenador:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Gerente:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Encarregado:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div></div></div>`;carregar();calcular();calcularPontuacaoSecao();atualizarHistorico();document.querySelectorAll(".collapsible").forEach(coll=>{coll.onclick=function(){this.classList.toggle("active");const content=this.nextElementSibling;content.style.display=(content.style.display==="block")?"none":"block";if(this.textContent.includes("Resumo Mensal"))resumoMensal();if(this.textContent.includes("Resumo Geral"))resumoGeral()}})}
 function formatarData(el){let v=el.value.replace(/\D/g,'');if(v.length>=3)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>=6)v=v.slice(0,5)+'/'+v.slice(5,9);el.value=v}
 function comprimirImagem(file, callback) {
@@ -2766,6 +2776,54 @@ function comprimirImagem(file, callback) {
     };
     reader.readAsDataURL(file);
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🆕 SALVA AUTOMATICAMENTE ANTES DE TIRAR FOTO
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function salvarAntesDeFoto() {
+    console.log('📸 Usuário vai tirar foto - salvando formulário automaticamente...');
+    
+    // Cria indicador visual
+    const indicador = document.createElement('div');
+    indicador.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #28a745;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideDown 0.3s ease;
+    `;
+    indicador.innerHTML = '💾 Salvando automaticamente...';
+    document.body.appendChild(indicador);
+    
+    // Adiciona animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(-30px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Salva sem mostrar alerta
+    salvar(false);
+    
+    // Remove indicador após 2 segundos
+    setTimeout(() => {
+        indicador.style.opacity = '0';
+        indicador.style.transform = 'translateX(-50%) translateY(-30px)';
+        indicador.style.transition = 'all 0.3s ease';
+        setTimeout(() => indicador.remove(), 300);
+    }, 2000);
+}
+
 function anexarFoto(input){
     
     // 🆕 Verifica se Google Drive está ativo
@@ -4644,6 +4702,74 @@ function scrollParaConclusao(){const conclusaoEl=document.getElementById('conclu
         
         criarTabs();
         montarTela();
+        
+        // 🆕 AUTO-RECUPERAÇÃO: Carrega rascunho automaticamente
+        setTimeout(() => {
+            const rascunho = localStorage.getItem("shoemix_"+lojaAtual);
+            if (rascunho) {
+                console.log('📋 Rascunho encontrado - recuperando automaticamente...');
+                
+                // Mostra indicador de recuperação
+                const indicador = document.createElement('div');
+                indicador.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #17a2b8;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    z-index: 10000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                `;
+                indicador.innerHTML = '🔄 Recuperando rascunho salvo...';
+                document.body.appendChild(indicador);
+                
+                // Carrega o rascunho
+                carregar();
+                
+                setTimeout(() => {
+                    indicador.innerHTML = '✅ Rascunho recuperado!';
+                    indicador.style.background = '#28a745';
+                    setTimeout(() => {
+                        indicador.style.opacity = '0';
+                        indicador.style.transition = 'opacity 0.3s ease';
+                        setTimeout(() => indicador.remove(), 300);
+                    }, 2000);
+                }, 500);
+            }
+            
+            // 🆕 Mostra indicador de auto-save por 10 segundos
+            const autosaveInfo = document.getElementById('autosaveInfo');
+            if (autosaveInfo) {
+                setTimeout(() => {
+                    autosaveInfo.style.opacity = '0';
+                    autosaveInfo.style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => autosaveInfo.style.display = 'none', 500);
+                }, 10000); // Esconde após 10 segundos
+            }
+        }, 500);
+        
+        // 🆕 AUTO-SAVE PERIÓDICO: Salva automaticamente a cada 30 segundos
+        setInterval(() => {
+            const dados = {};
+            let temDados = false;
+            
+            // Verifica se tem algum dado preenchido
+            document.querySelectorAll("input[type=text],input[type=number],textarea,select").forEach(el => {
+                if (el.id && !el.classList.contains('pts') && el.value && el.value.trim()) {
+                    temDados = true;
+                }
+            });
+            
+            // Só salva se tiver algum dado
+            if (temDados) {
+                console.log('💾 Auto-save periódico (30s)');
+                salvar(false); // Salva sem mostrar alerta
+            }
+        }, 30000); // 30 segundos
         
     } catch(error) {
         console.error('❌ Erro ao inicializar IndexedDB:', error);
