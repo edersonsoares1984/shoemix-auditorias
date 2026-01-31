@@ -2796,7 +2796,7 @@ function comprimirImagem(file, callback) {
 }
 
 // 🆕 Versão moderna da compressão que retorna Promise (para usar com async/await)
-function comprimirImagemModerna(file) {
+function comprimirImagemModerna(file, qualidade = 0.7) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -2807,8 +2807,8 @@ function comprimirImagemModerna(file) {
                     let width = img.width;
                     let height = img.height;
                     
-                    // 🔥 COMPRESSÃO EXTREMA PARA CÂMERA: 400px (fotos de câmera são MUITO grandes)
-                    const maxSize = 400;
+                    // 🔥 COMPRESSÃO INTELIGENTE: 800px para melhor qualidade visual
+                    const maxSize = 800;
                     if (width > height) {
                         if (width > maxSize) {
                             height *= maxSize / width;
@@ -2827,14 +2827,15 @@ function comprimirImagemModerna(file) {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // 🔥 QUALIDADE 40% - Máxima compressão para upload mobile
+                    // 🚀 USA QUALIDADE PASSADA COMO PARÂMETRO (0.6 para câmera, 0.7 para arquivo)
                     canvas.toBlob((blob) => {
                         if (blob) {
+                            console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Qualidade:', qualidade);
                             resolve(blob);
                         } else {
                             reject(new Error('Falha ao comprimir imagem'));
                         }
-                    }, 'image/jpeg', 0.4);
+                    }, 'image/jpeg', qualidade);
                     
                 } catch(error) {
                     reject(error);
@@ -7511,7 +7512,36 @@ async function anexarFotosGoogleDrive(input) {
             btnRemover.className = 'remover-foto';
             btnRemover.type = 'button';
             btnRemover.innerHTML = '×';
-            btnRemover.style.display = 'none'; // Esconde botão até terminar upload
+            btnRemover.style.display = 'flex'; // 🚀 MOSTRA DESDE O INÍCIO!
+            
+            // 🆕 BOTÃO X FUNCIONA IMEDIATAMENTE (remove preview mesmo antes do upload)
+            btnRemover.onclick = async (e) => {
+                e.stopPropagation();
+                
+                const driveId = div.getAttribute('data-drive-id');
+                
+                if (driveId) {
+                    // Foto JÁ foi enviada para Drive
+                    if (confirm('Remover esta foto do Google Drive?')) {
+                        try {
+                            await removerFotoDrive(driveId);
+                            URL.revokeObjectURL(urlLocal);
+                            div.remove();
+                            mostrarToast('✅ Foto removida do Drive!', 'sucesso');
+                        } catch(error) {
+                            console.error('Erro ao remover:', error);
+                            mostrarToast('❌ Erro ao remover foto', 'erro');
+                        }
+                    }
+                } else {
+                    // Foto AINDA NÃO foi enviada (está em upload)
+                    if (confirm('Cancelar upload e remover foto?')) {
+                        URL.revokeObjectURL(urlLocal);
+                        div.remove();
+                        mostrarToast('✅ Upload cancelado', 'sucesso');
+                    }
+                }
+            };
             
             // Badge de "Enviando..."
             const badge = document.createElement('div');
@@ -7544,23 +7574,9 @@ async function anexarFotosGoogleDrive(input) {
                 // Remove badge e restaura opacidade
                 badge.remove();
                 img.style.opacity = '1';
-                btnRemover.style.display = 'flex';
                 
-                // Atualiza o onclick do botão remover APÓS ter o ID do Drive
-                btnRemover.onclick = async (e) => {
-                    e.stopPropagation();
-                    if (confirm('Remover esta foto do Google Drive?')) {
-                        try {
-                            await removerFotoDrive(resultado.id);
-                            URL.revokeObjectURL(urlLocal);
-                            div.remove();
-                            mostrarToast('✅ Foto removida!', 'sucesso');
-                        } catch(error) {
-                            console.error('Erro ao remover:', error);
-                            mostrarToast('❌ Erro ao remover foto', 'erro');
-                        }
-                    }
-                };
+                // 🚀 BOTÃO X JÁ ESTÁ CONFIGURADO - Apenas atualiza estado
+                // (Agora o botão detecta se tem data-drive-id e age de acordo)
                 
                 enviadas++;
                 const percentual = Math.round((enviadas / total) * 100);
@@ -7581,14 +7597,7 @@ async function anexarFotosGoogleDrive(input) {
                 badge.style.background = 'rgba(220, 53, 69, 0.9)';
                 img.style.opacity = '0.7';
                 
-                // Botão de remover funciona localmente
-                btnRemover.style.display = 'flex';
-                btnRemover.onclick = (e) => {
-                    e.stopPropagation();
-                    URL.revokeObjectURL(urlLocal);
-                    div.remove();
-                    mostrarToast('✅ Foto removida (local)', 'sucesso');
-                };
+                // 🚀 BOTÃO X JÁ FUNCIONA - Não precisa reconfigurar
                 
                 const mensagemErro = uploadError.message || 'Erro ao enviar';
                 mostrarToast('⚠️ Foto ' + (index+1) + ': ' + mensagemErro, 'erro');
