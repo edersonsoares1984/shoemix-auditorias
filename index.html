@@ -3912,21 +3912,36 @@ async function salvar(aviso=false){
             );
             
             if (opcaoBackup) {
-                // Prepara dados para backup
+                // 🔥 BACKUP COMPLETO — coleta histórico + rascunho de TODAS as lojas
+                const historicos = {};
+                const rascunhos = {};
+
+                for (let i = 0; i < lojas.length; i++) {
+                    const h = localStorage.getItem("hist_" + i);
+                    if (h) historicos[lojas[i]] = JSON.parse(h);
+
+                    const r = localStorage.getItem("shoemix_" + i);
+                    if (r) rascunhos[lojas[i]] = JSON.parse(r);
+                }
+
                 const dadosBackup = {
-                    loja: lojas[lojaAtual],
-                    data: new Date().toLocaleString(),
-                    visita: dados,
-                    historico: hist
+                    historicos: historicos,
+                    rascunhos: rascunhos,
+                    metadados: {
+                        exportado_em: new Date().toLocaleString('pt-BR'),
+                        versao: 'shoemix_v2',
+                        total_lojas: lojas.length,
+                        lojas: lojas
+                    }
                 };
-                
-                // 1. Download do JSON
+
+                // 1. Download do JSON completo
                 const jsonStr = JSON.stringify(dadosBackup, null, 2);
                 const blob = new Blob([jsonStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `backup_${lojas[lojaAtual].replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+                a.download = `shoemix_backup_completo_${new Date().toISOString().split('T')[0]}.json`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
