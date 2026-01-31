@@ -3063,13 +3063,48 @@ function salvarAntesDeFoto() {
     }, 2000);
 }
 
-function anexarFoto(input){
+async function anexarFoto(input){
     
-    // 🆕 Verifica se Google Drive está ativo
+    // 🔧 Se tem token salvo mas ainda não confirmou conexão, aguarda até 5s
+    if (CONFIG_DRIVE && !CONFIG_DRIVE.conectado && (CONFIG_DRIVE.accessToken || localStorage.getItem('google_access_token'))) {
+        const secao = input.closest('.section');
+        const preview = secao ? secao.querySelector('.fotos-preview') : null;
+        
+        // Mostra indicador de espera no preview
+        const espera = document.createElement('div');
+        espera.className = 'foto-item';
+        espera.id = 'espera-conexao-drive';
+        espera.innerHTML = '<div style="padding:20px;text-align:center;color:#4285f4;font-weight:600">⏳ Conectando ao Drive...</div>';
+        if (preview) preview.appendChild(espera);
+        
+        // Aguarda até 5 segundos para o Drive conectar
+        let tentativas = 0;
+        while (!CONFIG_DRIVE.conectado && tentativas < 50) {
+            await new Promise(r => setTimeout(r, 100)); // 100ms × 50 = 5s máximo
+            tentativas++;
+        }
+        
+        // Remove indicador
+        if (espera.parentNode) espera.remove();
+        
+        // Se conectou dentro do tempo, segue para o Drive
+        if (CONFIG_DRIVE.conectado) {
+            console.log('✅ Drive conectou em tempo — enviando foto para Drive');
+            anexarFotosGoogleDrive(input);
+            return;
+        }
+        
+        // Se não conectou em 5s, cai para IndexedDB com aviso
+        console.warn('⚠️ Drive não conectou em tempo — salvando localmente');
+        mostrarToast('⚠️ Drive não conectou em tempo. Foto salva localmente.', 'aviso');
+    }
+    
+    // ✅ Drive conectado normalmente — vai direto
     if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
         anexarFotosGoogleDrive(input);
         return;
     }
+    
     
     // Continua com método original (IndexedDB)
 
@@ -3881,12 +3916,16 @@ async function salvar(aviso=false){
                 console.log(`☁️ Seção ${secaoId}: Salvando referências do Google Drive`);
                 const fotosIDs = [];
                 
+                // 🔥 Obtém pasta UMA VEZ para essa seção (evita chamadas repetidas)
+                let folderId = null;
+                
                 for (const fotoDiv of fotosDivs) {
                     const driveId = fotoDiv.getAttribute('data-drive-id');
                     const driveUrl = fotoDiv.getAttribute('data-drive-url');
+                    const fotoId = fotoDiv.getAttribute('data-foto-id');
+                    const blob = window.fotosTemporarias?.[fotoId];
                     
-                    console.log(`   • Foto: driveId=${driveId ? 'OK' : 'AUSENTE'}, driveUrl=${driveUrl ? 'OK' : 'AUSENTE'}`);
-                    
+                    // ✅ Já está no Drive — registra normalmente
                     if (driveId) {
                         fotosIDs.push({
                             driveId: driveId,
@@ -3894,8 +3933,55 @@ async function salvar(aviso=false){
                             secaoId: secaoId
                         });
                         totalFotosSalvas++;
+                        console.log(`   ☁️ Foto já no Drive: ${driveId}`);
+                    
+                    // 🔥 Foto local (foi para IndexedDB porque Drive não conectou no tempo) — sobe para o Drive agora
+                    } else if (blob) {
+                        try {
+                            console.log(`   📤 Foto local encontrada (${fotoId}) — enviando para Drive...`);
+                            mostrarToast('📤 Enviando foto local para o Drive...', 'info');
+                            
+                            // Busca pasta só quando precisa (e reutiliza)
+                            if (!folderId) {
+                                folderId = await obterOuCriarPasta();
+                            }
+                            
+                            const nomeArquivo = `shoemix_sec${secaoId}_${Date.now()}.jpg`;
+                            const resultado = await uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId);
+                            
+                            // Atualiza os atributos no DOM
+                            fotoDiv.setAttribute('data-drive-id', resultado.id);
+                            fotoDiv.setAttribute('data-drive-url', resultado.url);
+                            fotoDiv.removeAttribute('data-foto-id');
+                            
+                            // Registra no array
+                            fotosIDs.push({
+                                driveId: resultado.id,
+                                driveUrl: resultado.url,
+                                secaoId: secaoId
+                            });
+                            totalFotosSalvas++;
+                            
+                            // Limpa o blob da memória
+                            delete window.fotosTemporarias[fotoId];
+                            
+                            console.log(`   ✅ Foto local enviada para Drive: ${resultado.id}`);
+                        } catch (errUpload) {
+                            console.error(`   ❌ Falhou ao enviar foto local para Drive:`, errUpload);
+                            mostrarToast('⚠️ Foto não foi enviada ao Drive — ficou salva localmente.', 'aviso');
+                            
+                            // Fallback: salva no IndexedDB para não perder
+                            try {
+                                const dbId = await salvarFotoDB(blob, visitaId, secaoId);
+                                fotoDiv.setAttribute('data-db-id', dbId);
+                                fotoDiv.removeAttribute('data-foto-id');
+                                console.log(`   💾 Fallback: foto salva no IndexedDB: ${dbId}`);
+                            } catch (errDB) {
+                                console.error('   ❌ Fallback IndexedDB também falhou:', errDB);
+                            }
+                        }
                     } else {
-                        console.warn('⚠️ Foto sem data-drive-id! Upload pode não ter terminado.');
+                        console.warn(`   ⚠️ Foto sem driveId e sem blob (${fotoId}) — ignorada.`);
                     }
                 }
                 
