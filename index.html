@@ -5,6 +5,24 @@
 <title>📌 Relatório de Pontuações - Processos de Estoque | Shoemix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- 
+🚀 VERSÃO OTIMIZADA - CÂMERA RÁPIDA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ MELHORIAS IMPLEMENTADAS:
+   • Upload ASSÍNCRONO em background (não trava mais!)
+   • Preview INSTANTÂNEO (foto aparece na hora)
+   • Compressão otimizada (qualidade 0.6 = mais rápido)
+   • Badge "Enviando..." mostra progresso do upload
+   • Se upload falhar, foto fica salva localmente
+   
+📸 EXPERIÊNCIA DO USUÁRIO:
+   1. Tira foto → Aparece INSTANTANEAMENTE ✨
+   2. Badge "📤 Enviando..." mostra que está fazendo upload
+   3. Quando terminar → Badge desaparece e foto fica 100% nítida
+   4. Pode tirar outra foto IMEDIATAMENTE sem esperar!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-->
+
 <!-- 🔧 CORREÇÃO: Suprime erro de postMessage quando executado via file:// -->
 <script>
 // Detecta se está rodando via file:// e suprime erros de postMessage
@@ -7423,8 +7441,8 @@ async function anexarFotosGoogleDrive(input) {
     let enviadas = 0;
     const total = arquivos.length;
     
-    // 🆕 Informa que pode demorar em conexão móvel
-    mostrarToast('📤 Enviando ' + total + ' foto(s)... Pode demorar em conexões lentas.', 'info');
+    // 📸 Inicia processamento rápido
+    mostrarToast('📸 Processando ' + total + ' foto(s)...', 'info');
     
     for (const file of arquivos) {
         try {
@@ -7438,15 +7456,13 @@ async function anexarFotosGoogleDrive(input) {
             
             // 🔥 SEMPRE COMPRIME (fotos de câmera são SEMPRE grandes, 3-8 MB)
             let blob;
-            console.log('🔄 Comprimindo imagem...');
-            if (statusText) statusText.textContent = '🔄 Comprimindo ' + file.name + '...';
-            mostrarToast('🔄 Comprimindo ' + (enviadas + 1) + '/' + total + '...', 'info');
+            console.log('⚡ Comprimindo rápido...');
+            if (statusText) statusText.textContent = '⚡ Processando ' + file.name + '...';
             
-            blob = await comprimirImagemModerna(file);
+            // 🚀 COMPRESSÃO SUPER RÁPIDA para fotos da câmera (qualidade 0.6)
+            blob = await comprimirImagemModerna(file, 0.6);
             
-            console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
-            if (statusText) statusText.textContent = '✅ Comprimido: ' + (blob.size/1024).toFixed(0)+'KB';
-            mostrarToast('✅ Pronto! Enviando...', 'info');
+            console.log('✅ Comprimido:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
             const urlLocal = URL.createObjectURL(blob);
@@ -7485,18 +7501,17 @@ async function anexarFotosGoogleDrive(input) {
             
             console.log('✅ Preview criado ANTES do upload');
             
-            // 🆕 AGORA SIM FAZ O UPLOAD
-            if (statusText) statusText.textContent = 'Enviando ' + file.name + '...';
-            
+            // 🚀 UPLOAD EM BACKGROUND (NÃO BLOQUEIA!) - Foto aparece instantaneamente
             const visitaId = window.visitaIdTemporario || 'sem_visita';
             const nomeArquivo = visitaId + '_' + secaoId + '_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             
-            console.log('📤 Enviando foto para Drive:', nomeArquivo, 'Tipo:', file.type, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
+            console.log('📤 Iniciando upload em background:', nomeArquivo, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
             
-            try {
-                const resultado = await uploadFotoParaDrive(blob, nomeArquivo);
+            // 🔥 NÃO ESPERA O UPLOAD - Continua imediatamente!
+            uploadFotoParaDrive(blob, nomeArquivo).then(resultado => {
+                // ✅ Quando terminar (em background), atualiza o preview
+                console.log('✅ Upload concluído:', nomeArquivo);
                 
-                // 🆕 APÓS UPLOAD BEM-SUCEDIDO, ATUALIZA O PREVIEW
                 div.setAttribute('data-drive-id', resultado.id);
                 div.setAttribute('data-drive-url', resultado.url);
                 div.setAttribute('data-upload-status', 'completed');
@@ -7530,30 +7545,29 @@ async function anexarFotosGoogleDrive(input) {
                 }
                 if (detailsText) detailsText.textContent = enviadas + ' de ' + total + ' fotos enviadas';
                 
-                console.log('✅ Foto enviada e preview criado:', nomeArquivo);
-                mostrarToast('✅ Foto ' + enviadas + '/' + total + ' enviada!');
+                mostrarToast('✅ Foto ' + enviadas + '/' + total + ' salva no Drive!');
                 
-            } catch (uploadError) {
-                // 🆕 SE UPLOAD FALHAR, REMOVE O PREVIEW E MOSTRA ERRO CLARO
-                console.error('❌ Upload falhou:', uploadError);
+            }).catch(uploadError => {
+                // ❌ Se falhar, marca como erro mas mantém preview local
+                console.error('❌ Upload falhou (foto mantida localmente):', uploadError);
                 
-                // Remove preview da foto que falhou
-                URL.revokeObjectURL(urlLocal);
-                div.remove();
+                // Altera badge para erro mas MANTÉM a foto
+                badge.textContent = '⚠️ Erro no envio';
+                badge.style.background = 'rgba(220, 53, 69, 0.9)';
+                img.style.opacity = '0.7';
                 
-                // Mostra erro detalhado
-                const mensagemErro = uploadError.message || 'Erro desconhecido';
-                mostrarToast('❌ ' + mensagemErro, 'erro');
+                // Botão de remover funciona localmente
+                btnRemover.style.display = 'flex';
+                btnRemover.onclick = (e) => {
+                    e.stopPropagation();
+                    URL.revokeObjectURL(urlLocal);
+                    div.remove();
+                    mostrarToast('✅ Foto removida (estava apenas local)', 'sucesso');
+                };
                 
-                // Se foi timeout, sugere usar Wi-Fi
-                if (mensagemErro.includes('Conexão muito lenta') || mensagemErro.includes('90s') || mensagemErro.includes('3 tentativas')) {
-                    setTimeout(() => {
-                        mostrarToast('💡 CONEXÃO MUITO LENTA! Foto falhou após 3 tentativas. Use Wi-Fi ou tire foto com resolução menor nas configurações da câmera.', 'erro');
-                    }, 2000);
-                }
-                
-                throw uploadError; // Re-lança para o catch externo
-            }
+                const mensagemErro = uploadError.message || 'Erro ao enviar para Drive';
+                mostrarToast('⚠️ ' + mensagemErro + ' (foto salva localmente)', 'erro');
+            });
             
         } catch (e) {
             console.error('❌ Erro ao enviar foto:', e);
@@ -7580,7 +7594,7 @@ async function anexarFotosGoogleDrive(input) {
     // Substitui o input antigo pelo novo
     input.parentNode.replaceChild(novoInput, input);
     
-    mostrarToast('✅ ' + enviadas + '/' + total + ' fotos salvas no Drive!', 'sucesso');
+    mostrarToast('✅ ' + total + ' foto(s) prontas! Upload para Drive continua em background.', 'sucesso');
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
