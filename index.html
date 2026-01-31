@@ -7089,6 +7089,19 @@ async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
         throw new Error('Não foi possível criar pasta');
     }
 
+    return uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId, tentativa);
+}
+
+// 🚀 FUNÇÃO OTIMIZADA: Recebe folderId pronto (não busca novamente!)
+async function uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId, tentativa = 1) {
+    if (!CONFIG_DRIVE.conectado) {
+        throw new Error('Drive não conectado');
+    }
+
+    if (!folderId) {
+        throw new Error('Pasta não informada');
+    }
+
     const metadata = {
         name: nomeArquivo,
         parents: [folderId],
@@ -7101,12 +7114,12 @@ async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
 
     console.log(`📤 Tentativa ${tentativa} de upload: ${nomeArquivo} (${(blob.size/1024).toFixed(0)}KB)`);
 
-    // 🔥 TIMEOUT DE 90 SEGUNDOS (3x mais que o original para conexões móveis muito lentas)
+    // 🔥 TIMEOUT REDUZIDO: 30 segundos (fotos comprimidas são pequenas!)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
         controller.abort();
-        console.log('⏱️ Upload cancelado por timeout (90s)');
-    }, 90000); // 90 segundos
+        console.log('⏱️ Upload cancelado por timeout (30s)');
+    }, 30000); // 30 segundos (foto já está comprimida!)
 
     try {
         const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
@@ -7135,20 +7148,19 @@ async function uploadFotoParaDrive(blob, nomeArquivo, tentativa = 1) {
     } catch (error) {
         clearTimeout(timeoutId);
         
-        // 🔥 RETRY AUTOMÁTICO (até 3 tentativas para conexões lentas)
-        if (tentativa < 3 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
+        // 🔥 RETRY AUTOMÁTICO (até 2 tentativas para uploads paralelos)
+        if (tentativa < 2 && (error.name === 'AbortError' || error.message.includes('Failed to fetch'))) {
             console.log(`🔄 Tentando novamente (tentativa ${tentativa + 1})...`);
-            mostrarToast(`🔄 Tentativa ${tentativa + 1}/3 - Aguarde...`, 'info');
             
-            // Aguarda 3 segundos antes de tentar novamente
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Aguarda 2 segundos antes de tentar novamente
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            return uploadFotoParaDrive(blob, nomeArquivo, tentativa + 1);
+            return uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId, tentativa + 1);
         }
         
-        // Se falhou após 3 tentativas, joga erro
+        // Se falhou após 2 tentativas, joga erro
         console.error('❌ Upload falhou após', tentativa, 'tentativa(s):', error);
-        throw new Error('Upload falhou após 3 tentativas: ' + (error.name === 'AbortError' ? 'Conexão muito lenta (90s) - Use Wi-Fi' : error.message));
+        throw new Error(error.name === 'AbortError' ? 'Timeout: Conexão lenta' : error.message);
     }
 }
 
@@ -7444,6 +7456,18 @@ async function anexarFotosGoogleDrive(input) {
     // 📸 Inicia processamento rápido
     mostrarToast('📸 Processando ' + total + ' foto(s)...', 'info');
     
+    // 🚀 OTIMIZAÇÃO CRÍTICA: Busca a pasta UMA VEZ SÓ (não em cada upload!)
+    let folderId = null;
+    try {
+        console.log('📁 Obtendo pasta do Drive uma única vez...');
+        folderId = await obterOuCriarPasta();
+        console.log('✅ Pasta pronta:', folderId);
+    } catch (error) {
+        console.error('❌ Erro ao obter pasta:', error);
+        mostrarToast('❌ Erro ao acessar pasta do Drive', 'erro');
+        return;
+    }
+    
     // 🚀 PROCESSA TODAS AS FOTOS EM PARALELO (não uma de cada vez!)
     const promessas = arquivos.map(async (file, index) => {
         try {
@@ -7508,8 +7532,8 @@ async function anexarFotosGoogleDrive(input) {
             
             console.log('📤 Upload paralelo ' + (index+1) + '/' + total + ':', nomeArquivo);
             
-            // 🔥 UPLOAD NÃO BLOQUEANTE - Todas sobem juntas!
-            uploadFotoParaDrive(blob, nomeArquivo).then(resultado => {
+            // 🔥 UPLOAD OTIMIZADO - Passa o folderId direto (não busca novamente!)
+            uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId).then(resultado => {
                 // ✅ Quando terminar (em background), atualiza o preview
                 console.log('✅ Upload ' + (index+1) + ' concluído:', nomeArquivo);
                 
