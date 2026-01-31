@@ -225,6 +225,61 @@ tr:nth-child(even){background:#f9f9f9}
 .collapsible:after{content:' ▸';float:right}
 .collapsible.active:after{content:' ▾'}
 .collapsible:hover{opacity:0.85}
+/* 🆕 Estilo melhorado para input de fotos - Visual personalizado */
+.foto-input {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: 2px dashed #f00;
+    border-radius: 8px;
+    background: #fff;
+    color: #f00;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+    font-size: 0.95em;
+}
+
+.foto-input:hover {
+    background: #fff5f5;
+    border-color: #c00;
+    transform: scale(1.02);
+}
+
+.foto-input::-webkit-file-upload-button {
+    background: #f00;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-right: 10px;
+    transition: 0.2s;
+}
+
+.foto-input::-webkit-file-upload-button:hover {
+    background: #c00;
+}
+
+/* Para Firefox */
+.foto-input::file-selector-button {
+    background: #f00;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    margin-right: 10px;
+    transition: 0.2s;
+}
+
+.foto-input::file-selector-button:hover {
+    background: #c00;
+}
+
 .fotos-preview{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
 .foto-item{position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;pointer-events:auto}
 .foto-item img{width:100%;height:120px;object-fit:cover;border-radius:4px;cursor:pointer;transition:0.3s;pointer-events:auto}
@@ -3090,7 +3145,10 @@ function anexarFoto(input){
         reader.readAsArrayBuffer(file);
     });
     
-    input.value='';
+    // 🆕 Limpa o input completamente para permitir novas seleções
+    setTimeout(() => {
+        input.value = '';
+    }, 100);
 }
 function removerFoto(fotoId,event){if(event){event.stopPropagation();event.preventDefault()}if(!confirm('Deseja remover esta foto?'))return;const fotoItem=document.querySelector(`[data-foto-id="${fotoId}"]`);if(!fotoItem){alert('❌ Erro ao localizar a foto.');return}fotoItem.remove();setTimeout(()=>{salvar(false)},100)}
 function ampliarFoto(fotoId){const f=document.querySelector(`[data-foto-id="${fotoId}"]`);if(!f)return;const img=f.querySelector('img'),modal=document.getElementById('modalFoto'),modalImg=document.getElementById('imagemModal');modalImg.src=img.src;modal.style.display='flex'}
@@ -7655,13 +7713,24 @@ const intervaloInicial = setInterval(() => {
 
 // 🆕 Função auxiliar para anexar fotos via Google Drive
 async function anexarFotosGoogleDrive(input) {
+    console.log('📱 Iniciando anexarFotosGoogleDrive');
+    console.log('   • Dispositivo:', /Mobi|Android/i.test(navigator.userAgent) ? 'MOBILE' : 'DESKTOP');
+    
     const secao = input.closest('.section');
     const secaoId = secao.getAttribute('data-secao');
     const preview = secao.querySelector('.fotos-preview');
     
-    if (!input.files || input.files.length === 0) return;
+    console.log('   • Seção ID:', secaoId);
+    console.log('   • Preview encontrado:', !!preview);
+    
+    if (!input.files || input.files.length === 0) {
+        console.warn('⚠️ Nenhum arquivo selecionado');
+        return;
+    }
     
     const arquivos = Array.from(input.files);
+    console.log('   • Total de arquivos:', arquivos.length);
+    
     const progressDiv = document.getElementById('uploadProgress');
     const progressBar = document.getElementById('uploadProgressBar');
     const statusText = document.getElementById('uploadStatusText');
@@ -7674,6 +7743,9 @@ async function anexarFotosGoogleDrive(input) {
     
     // 📸 Inicia processamento rápido
     mostrarToast('📸 Processando ' + total + ' foto(s)...', 'info');
+    
+    // 🆕 NÃO LIMPA O PREVIEW - mantém fotos anteriores
+    console.log('   • Fotos já no preview:', preview.children.length);
     
     // 🚀 OTIMIZAÇÃO CRÍTICA: Busca a pasta UMA VEZ SÓ (não em cada upload!)
     let folderId = null;
@@ -7709,21 +7781,51 @@ async function anexarFotosGoogleDrive(input) {
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
             const urlLocal = URL.createObjectURL(blob);
+            console.log('🖼️ URL da imagem criada:', urlLocal);
             
             const div = document.createElement('div');
             div.className = 'foto-item';
             div.setAttribute('data-secao-id', secaoId);
             div.setAttribute('data-upload-status', 'uploading'); // Marca como enviando
+            // 🆕 Estilos inline para garantir visualização em mobile
+            div.style.cssText = 'position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
             
             const img = document.createElement('img');
             img.src = urlLocal;
             img.alt = 'Foto anexada';
             img.style.opacity = '0.6'; // Fica meio transparente enquanto envia
+            img.style.display = 'block'; // 🆕 Garante que a imagem seja exibida
+            img.style.width = '100%';
+            img.style.height = '120px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '4px';
+            img.style.cursor = 'pointer';
+            
+            // Adiciona evento de click para ampliar
             img.onclick = () => {
                 const modal = document.getElementById('modalFoto');
                 const modalImg = document.getElementById('imagemModal');
-                modalImg.src = urlLocal;
-                modal.style.display = 'flex';
+                if (modal && modalImg) {
+                    modalImg.src = urlLocal;
+                    modal.style.display = 'flex';
+                } else {
+                    // Fallback: abre em nova aba
+                    window.open(urlLocal, '_blank');
+                }
+            };
+            
+            // Adiciona handler de erro na imagem
+            img.onerror = (e) => {
+                console.error('❌ Erro ao carregar imagem:', e);
+                img.style.display = 'none';
+                const errorText = document.createElement('div');
+                errorText.style.cssText = 'padding:10px;text-align:center;color:#f00';
+                errorText.textContent = '❌ Erro ao carregar';
+                div.appendChild(errorText);
+            };
+            
+            img.onload = () => {
+                console.log('✅ Imagem carregada com sucesso');
             };
             
             const btnRemover = document.createElement('button');
@@ -7763,15 +7865,19 @@ async function anexarFotosGoogleDrive(input) {
             
             // Badge de "Enviando..."
             const badge = document.createElement('div');
-            badge.style.cssText = 'position:absolute;top:5px;left:5px;background:rgba(255,165,0,0.9);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;z-index:5';
+            badge.style.cssText = 'position:absolute;top:5px;left:5px;background:rgba(255,165,0,0.95);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;z-index:5;pointer-events:none';
             badge.textContent = '📤 Enviando...';
             
+            // 🆕 ORDEM CORRETA: img primeiro, depois badge e botão por cima
+            div.appendChild(img);
             div.appendChild(badge);
             div.appendChild(btnRemover);
-            div.appendChild(img);
             preview.appendChild(div);
             
-            console.log('✅ Preview ' + (index+1) + ' criado - iniciando upload em paralelo');
+            console.log('✅ Preview ' + (index+1) + ' criado - IMAGEM DEVE ESTAR VISÍVEL');
+            console.log('   • Div className:', div.className);
+            console.log('   • Img src:', img.src.substring(0, 50) + '...');
+            console.log('   • Img display:', img.style.display);
             
             // 🚀 UPLOAD EM BACKGROUND PARALELO - Todas as fotos sobem ao mesmo tempo!
             const visitaId = window.visitaIdTemporario || 'sem_visita';
@@ -7836,18 +7942,29 @@ async function anexarFotosGoogleDrive(input) {
         }, 2000);
     }
     
-    // 🆕 SOLUÇÃO DEFINITIVA: Substitui o input completamente para limpar texto visível
-    const novoInput = document.createElement('input');
-    novoInput.type = 'file';
-    novoInput.accept = 'image/png,image/jpeg,image/jpg,image/webp';
-    novoInput.className = 'foto-input';
-    novoInput.multiple = true;
-    novoInput.onchange = function() { anexarFoto(this); };
-    novoInput.onfocus = function() { salvarAntesDeFoto(); };
-    novoInput.onclick = function() { salvarAntesDeFoto(); };
-    
-    // Substitui o input antigo pelo novo
-    input.parentNode.replaceChild(novoInput, input);
+    // 🆕 SOLUÇÃO DEFINITIVA: Limpa completamente o input e permite novas seleções
+    try {
+        // Método 1: Reset do valor
+        input.value = '';
+        
+        // Método 2: Se não funcionar, clona e substitui o input
+        const novoInput = input.cloneNode(true);
+        novoInput.value = '';
+        
+        // Remove eventos antigos e adiciona novos
+        novoInput.onchange = function() { anexarFoto(this); };
+        novoInput.onfocus = function() { salvarAntesDeFoto(); };
+        novoInput.onclick = function() { salvarAntesDeFoto(); };
+        
+        // Substitui o input antigo pelo novo
+        input.parentNode.replaceChild(novoInput, input);
+        
+        console.log('✅ Input limpo e pronto para novas fotos');
+    } catch(e) {
+        console.error('Erro ao limpar input:', e);
+        // Fallback: apenas reseta o valor
+        input.value = '';
+    }
     
     mostrarToast('✅ ' + total + ' foto(s) prontas! Upload para Drive continua em background.', 'sucesso');
 }
