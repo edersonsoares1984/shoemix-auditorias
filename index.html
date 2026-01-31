@@ -3861,6 +3861,12 @@ async function salvar(aviso=false){
         dados.visitaId = visitaId; // Guarda no dados
         
         console.log('📸 Iniciando salvamento de fotos...');
+        console.log('🔍 Status do Google Drive:', {
+            CONFIG_DRIVE_existe: !!CONFIG_DRIVE,
+            conectado: CONFIG_DRIVE?.conectado,
+            clientId: CONFIG_DRIVE?.clientId ? 'Configurado' : 'NÃO configurado'
+        });
+        
         let totalFotosSalvas = 0;
         
         // Percorre cada seção e salva as fotos
@@ -3872,11 +3878,14 @@ async function salvar(aviso=false){
             
             // ☁️ Se usa Google Drive, salva apenas os IDs
             if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+                console.log(`☁️ Seção ${secaoId}: Salvando referências do Google Drive`);
                 const fotosIDs = [];
                 
                 for (const fotoDiv of fotosDivs) {
                     const driveId = fotoDiv.getAttribute('data-drive-id');
                     const driveUrl = fotoDiv.getAttribute('data-drive-url');
+                    
+                    console.log(`   • Foto: driveId=${driveId ? 'OK' : 'AUSENTE'}, driveUrl=${driveUrl ? 'OK' : 'AUSENTE'}`);
                     
                     if (driveId) {
                         fotosIDs.push({
@@ -3885,6 +3894,8 @@ async function salvar(aviso=false){
                             secaoId: secaoId
                         });
                         totalFotosSalvas++;
+                    } else {
+                        console.warn('⚠️ Foto sem data-drive-id! Upload pode não ter terminado.');
                     }
                 }
                 
@@ -3896,6 +3907,8 @@ async function salvar(aviso=false){
                 
             } else {
                 // 💾 Se não usa Google Drive, salva no IndexedDB
+                console.log(`💾 Seção ${secaoId}: Salvando no IndexedDB (Drive não conectado)`);
+                
                 for (const fotoDiv of fotosDivs) {
                     const fotoId = fotoDiv.getAttribute('data-foto-id');
                     
@@ -3920,7 +3933,9 @@ async function salvar(aviso=false){
         // Limpa temporários após salvar
         window.fotosTemporarias = {};
         
+        const metodoSalvamento = (CONFIG_DRIVE && CONFIG_DRIVE.conectado) ? 'Google Drive' : 'IndexedDB';
         console.log(`✅ ${totalFotosSalvas} fotos salvas para visita ${visitaId}`);
+        console.log(`📍 Método de armazenamento: ${metodoSalvamento}`);
         
     } catch(error) {
         console.error('❌ Erro ao salvar fotos:', error);
@@ -3959,7 +3974,15 @@ async function salvar(aviso=false){
         // ✅ CORREÇÃO: Limita a 50 visitas mais recentes
         hist = manterHistoricoRecente(hist, 50);
         
-        alert("✅ Visita salva com sucesso!\n\n📸 Fotos armazenadas no IndexedDB\n📦 Total de visitas: " + hist.length);
+        // 🆕 Mensagem dinâmica baseada em onde as fotos foram salvas
+        let mensagemFotos = '';
+        if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+            mensagemFotos = '☁️ Fotos salvas no Google Drive';
+        } else {
+            mensagemFotos = '📸 Fotos armazenadas no IndexedDB';
+        }
+        
+        alert("✅ Visita salva com sucesso!\n\n" + mensagemFotos + "\n📦 Total de visitas: " + hist.length);
         
         // 🆕 OPÇÕES DE BACKUP ADICIONAL
         setTimeout(() => {
