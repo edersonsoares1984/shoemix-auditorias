@@ -4560,13 +4560,39 @@ async function exportarJSON(){
     }
   }
   
-  if(Object.keys(todosHistoricos).length === 0) {
+  // 🆕 Coleta também os rascunhos ativos de cada loja
+  const rascunhos = {};
+  for(let i = 0; i < lojas.length; i++) {
+    const rascunho = localStorage.getItem("shoemix_"+i);
+    if(rascunho) {
+      try {
+        rascunhos[lojas[i]] = JSON.parse(rascunho);
+        console.log(`📝 Rascunho da Loja ${lojas[i]}: encontrado`);
+      } catch(e) {
+        console.error('❌ Erro ao parsear rascunho da loja', lojas[i], e);
+      }
+    }
+  }
+
+  if(Object.keys(todosHistoricos).length === 0 && Object.keys(rascunhos).length === 0) {
     alert("⚠️ Nenhum dado para exportar!");
     return;
   }
   
+  // Monta objeto final com históricos + rascunhos
+  const exportacaoFinal = {
+    historicos: todosHistoricos,
+    rascunhos: rascunhos,
+    metadados: {
+      exportado_em: new Date().toLocaleString('pt-BR'),
+      versao: 'shoemix_v2',
+      total_lojas: lojas.length,
+      lojas: lojas
+    }
+  };
+
   console.log('✅ Exportação concluída, gerando arquivo JSON...');
-  const dataStr = JSON.stringify(todosHistoricos, null, 2);
+  const dataStr = JSON.stringify(exportacaoFinal, null, 2);
   const dataBlob = new Blob([dataStr], {type: 'application/json'});
   const url = URL.createObjectURL(dataBlob);
   const link = document.createElement('a');
@@ -4578,7 +4604,9 @@ async function exportarJSON(){
   URL.revokeObjectURL(url);
   
   console.log('📥 Arquivo JSON baixado');
-  mostrarToast('✅ JSON exportado COM FOTOS!', 'sucesso');
+  const totalLojas = Object.keys(todosHistoricos).length;
+  const totalRascunhos = Object.keys(rascunhos).length;
+  mostrarToast(`✅ JSON exportado! ${totalLojas} loja(s) com histórico + ${totalRascunhos} rascunho(s)`, 'sucesso');
 }
 
 // 🆕 Função auxiliar para converter Blob em base64
@@ -4674,8 +4702,33 @@ async function carregarJSON(){
         console.log('📦 Analisando formato do JSON...');
         console.log('Chaves encontradas:', Object.keys(data));
         
+        // Formato 0: Novo formato v2 com historicos + rascunhos + metadados
+        if(data.metadados && data.metadados.versao === 'shoemix_v2') {
+          console.log('📦 Formato detectado: Shoemix v2 (históricos + rascunhos)');
+          
+          // Importa históricos normalmente
+          if(data.historicos) {
+            dadosParaImportar = data.historicos;
+          }
+          
+          // Restaura os rascunhos de cada loja
+          if(data.rascunhos && typeof data.rascunhos === 'object') {
+            for(const nomeLoja of Object.keys(data.rascunhos)) {
+              const indice = lojas.indexOf(nomeLoja);
+              if(indice !== -1) {
+                try {
+                  localStorage.setItem("shoemix_"+indice, JSON.stringify(data.rascunhos[nomeLoja]));
+                  console.log(`📝 Rascunho restaurado: ${nomeLoja}`);
+                  detalhes.push(`📝 ${nomeLoja}: rascunho restaurado`);
+                } catch(e) {
+                  console.error('❌ Erro ao restaurar rascunho de', nomeLoja, e);
+                }
+              }
+            }
+          }
+        }
         // Formato 1: JSON de sincronização {exportado_em, total_visitas, visitas: [...]}
-        if(data.visitas && Array.isArray(data.visitas)) {
+        else if(data.visitas && Array.isArray(data.visitas)) {
           console.log('📦 Formato detectado: JSON de sincronização');
           
           // Agrupa as visitas por loja
