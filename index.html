@@ -408,7 +408,11 @@ tr:nth-child(even){background:#f9f9f9}
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 /* 📊 DASHBOARD COM GRÁFICOS - TRANSFORMAÇÃO v3.0 */
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* 📊 ESTILOS DO DASHBOARD - DESABILITADOS */
+/* Dashboard removido conforme solicitação do usuário */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
+/*
 .dashboard-moderno {
     background: #fff;
     border: 3px solid #f00;
@@ -537,6 +541,7 @@ tr:nth-child(even){background:#f9f9f9}
 .tendencia-neutra {
     color: #ffc107;
 }
+*/
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 /* 🏆 RANKING DE LOJAS */
@@ -5888,9 +5893,13 @@ setTimeout(() => {
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📊 DASHBOARD COM GRÁFICOS - TRANSFORMAÇÃO v3.0
+// 📊 DASHBOARD COM GRÁFICOS - DESABILITADO
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Dashboard removido conforme solicitação do usuário
+// O usuário prefere se basear em todas as visitas, não nas últimas
+// Código comentado para possível reativação futura
 
+/*
 let chartEvolucao = null; // Referência ao gráfico
 
 // Função para criar Dashboard com Gráfico de Evolução
@@ -6022,7 +6031,44 @@ function criarGraficoEvolucao(dados) {
         chartEvolucao.destroy();
     }
     
-    const labels = dados.map(d => new Date(d.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }));
+    // Função auxiliar para converter data em múltiplos formatos
+    function converterData(dataInput) {
+        if (!dataInput) return null;
+        
+        let dataObj;
+        
+        // Se for string com formato dd/mm/yyyy
+        if (typeof dataInput === 'string' && dataInput.includes('/')) {
+            const partes = dataInput.split(' ')[0].split('/'); // Remove hora se existir
+            if (partes.length === 3) {
+                const dia = parseInt(partes[0]);
+                const mes = parseInt(partes[1]) - 1; // Mês é 0-indexed
+                const ano = parseInt(partes[2]);
+                dataObj = new Date(ano, mes, dia);
+            }
+        } 
+        // Outros formatos (ISO, timestamp, etc)
+        else {
+            dataObj = new Date(dataInput);
+        }
+        
+        // Valida se a data é válida
+        if (dataObj && !isNaN(dataObj.getTime())) {
+            return dataObj;
+        }
+        
+        return null;
+    }
+    
+    // Converte e valida todas as datas
+    const labels = dados.map(d => {
+        const dataObj = converterData(d.data);
+        if (dataObj) {
+            return dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+        }
+        return 'Data inválida';
+    });
+    
     const pontuacoes = dados.map(d => d.pontuacao || 0);
     
     chartEvolucao = new Chart(ctx, {
@@ -6100,6 +6146,7 @@ function criarGraficoEvolucao(dados) {
         }
     });
 }
+*/
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🏆 RANKING DE LOJAS
@@ -6420,23 +6467,19 @@ window.abrirRelatorioDiretoria = async function() {
     setTimeout(async () => {
         const modalBody = document.querySelector('.relatorio-diretoria-content');
         if (modalBody) {
-            // Adiciona Dashboard no início
-            const dashboard = criarDashboardGraficos();
+            // ❌ DASHBOARD DE PERFORMANCE REMOVIDO - não é necessário
+            // O usuário prefere se basear em todas as visitas, não nas últimas
+            
+            // Adiciona apenas o Ranking de Lojas
+            const ranking = await criarRankingLojas();
             const primeiroElemento = modalBody.querySelector('.dashboard-grid')?.parentElement;
             if (primeiroElemento) {
-                primeiroElemento.parentNode.insertBefore(dashboard, primeiroElemento);
+                primeiroElemento.parentNode.insertBefore(ranking, primeiroElemento);
             } else {
-                modalBody.insertBefore(dashboard, modalBody.firstChild);
+                modalBody.insertBefore(ranking, modalBody.firstChild);
             }
             
-            // Adiciona Ranking após o dashboard (agora async)
-            const ranking = await criarRankingLojas();
-            dashboard.parentNode.insertBefore(ranking, dashboard.nextSibling);
-            
-            // Atualiza dados do dashboard
-            await atualizarDashboard();
-            
-            console.log('✅ Dashboard e Ranking adicionados ao Relatório de Diretoria');
+            console.log('✅ Ranking de Lojas adicionado ao Relatório de Diretoria');
         }
     }, 500);
 };
@@ -6445,7 +6488,7 @@ window.abrirRelatorioDiretoria = async function() {
 // 🎯 INICIALIZAÇÃO
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-console.log('📊 Dashboard e Ranking inicializados!');
+console.log('✅ Ranking de Lojas inicializado!');
 console.log('🏆 Abra o Relatório de Diretoria para ver as novidades!');
 
 
