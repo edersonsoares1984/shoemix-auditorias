@@ -7444,25 +7444,25 @@ async function anexarFotosGoogleDrive(input) {
     // 📸 Inicia processamento rápido
     mostrarToast('📸 Processando ' + total + ' foto(s)...', 'info');
     
-    for (const file of arquivos) {
+    // 🚀 PROCESSA TODAS AS FOTOS EM PARALELO (não uma de cada vez!)
+    const promessas = arquivos.map(async (file, index) => {
         try {
             // Validação de tipo de arquivo
             if(!file.type.startsWith('image/')) {
                 mostrarToast('⚠️ Apenas imagens são permitidas!', 'erro');
-                continue;
+                return;
             }
             
-            console.log('📸 Foto original:', file.name, 'Tamanho:', (file.size/1024).toFixed(0)+'KB');
+            console.log('📸 Foto ' + (index+1) + ':', file.name, 'Tamanho:', (file.size/1024).toFixed(0)+'KB');
             
             // 🔥 SEMPRE COMPRIME (fotos de câmera são SEMPRE grandes, 3-8 MB)
-            let blob;
-            console.log('⚡ Comprimindo rápido...');
-            if (statusText) statusText.textContent = '⚡ Processando ' + file.name + '...';
+            console.log('⚡ Comprimindo foto ' + (index+1) + '...');
+            if (statusText) statusText.textContent = '⚡ Processando foto ' + (index+1) + '/' + total + '...';
             
             // 🚀 COMPRESSÃO SUPER RÁPIDA para fotos da câmera (qualidade 0.6)
-            blob = await comprimirImagemModerna(file, 0.6);
+            const blob = await comprimirImagemModerna(file, 0.6);
             
-            console.log('✅ Comprimido:', (blob.size/1024).toFixed(0)+'KB', 'Redução:', Math.round((1 - blob.size/file.size) * 100)+'%');
+            console.log('✅ Foto ' + (index+1) + ' comprimida:', (blob.size/1024).toFixed(0)+'KB');
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
             const urlLocal = URL.createObjectURL(blob);
@@ -7499,18 +7499,19 @@ async function anexarFotosGoogleDrive(input) {
             div.appendChild(img);
             preview.appendChild(div);
             
-            console.log('✅ Preview criado ANTES do upload');
+            console.log('✅ Preview ' + (index+1) + ' criado - iniciando upload em paralelo');
             
-            // 🚀 UPLOAD EM BACKGROUND (NÃO BLOQUEIA!) - Foto aparece instantaneamente
+            // 🚀 UPLOAD EM BACKGROUND PARALELO - Todas as fotos sobem ao mesmo tempo!
             const visitaId = window.visitaIdTemporario || 'sem_visita';
-            const nomeArquivo = visitaId + '_' + secaoId + '_' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const timestamp = Date.now() + index; // Garante nomes únicos
+            const nomeArquivo = visitaId + '_' + secaoId + '_' + timestamp + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
             
-            console.log('📤 Iniciando upload em background:', nomeArquivo, 'Tamanho:', (blob.size/1024).toFixed(1)+'KB');
+            console.log('📤 Upload paralelo ' + (index+1) + '/' + total + ':', nomeArquivo);
             
-            // 🔥 NÃO ESPERA O UPLOAD - Continua imediatamente!
+            // 🔥 UPLOAD NÃO BLOQUEANTE - Todas sobem juntas!
             uploadFotoParaDrive(blob, nomeArquivo).then(resultado => {
                 // ✅ Quando terminar (em background), atualiza o preview
-                console.log('✅ Upload concluído:', nomeArquivo);
+                console.log('✅ Upload ' + (index+1) + ' concluído:', nomeArquivo);
                 
                 div.setAttribute('data-drive-id', resultado.id);
                 div.setAttribute('data-drive-url', resultado.url);
@@ -7549,10 +7550,10 @@ async function anexarFotosGoogleDrive(input) {
                 
             }).catch(uploadError => {
                 // ❌ Se falhar, marca como erro mas mantém preview local
-                console.error('❌ Upload falhou (foto mantida localmente):', uploadError);
+                console.error('❌ Upload ' + (index+1) + ' falhou:', uploadError);
                 
                 // Altera badge para erro mas MANTÉM a foto
-                badge.textContent = '⚠️ Erro no envio';
+                badge.textContent = '⚠️ Erro';
                 badge.style.background = 'rgba(220, 53, 69, 0.9)';
                 img.style.opacity = '0.7';
                 
@@ -7562,18 +7563,21 @@ async function anexarFotosGoogleDrive(input) {
                     e.stopPropagation();
                     URL.revokeObjectURL(urlLocal);
                     div.remove();
-                    mostrarToast('✅ Foto removida (estava apenas local)', 'sucesso');
+                    mostrarToast('✅ Foto removida (local)', 'sucesso');
                 };
                 
-                const mensagemErro = uploadError.message || 'Erro ao enviar para Drive';
-                mostrarToast('⚠️ ' + mensagemErro + ' (foto salva localmente)', 'erro');
+                const mensagemErro = uploadError.message || 'Erro ao enviar';
+                mostrarToast('⚠️ Foto ' + (index+1) + ': ' + mensagemErro, 'erro');
             });
             
         } catch (e) {
-            console.error('❌ Erro ao enviar foto:', e);
-            mostrarToast('❌ Erro ao enviar ' + file.name, 'erro');
+            console.error('❌ Erro ao processar foto ' + (index+1) + ':', e);
+            mostrarToast('❌ Erro na foto ' + (index+1), 'erro');
         }
-    }
+    });
+    
+    // Aguarda todas as compressões terminarem (mas NÃO os uploads!)
+    await Promise.all(promessas);
     
     if (progressDiv) {
         setTimeout(() => {
