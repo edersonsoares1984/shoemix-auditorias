@@ -4268,13 +4268,151 @@ async function carregarVisita(i){
     // ============================================
     const visitaId = visita.visitaId || d.visitaId;
     
+    console.log('═══════════════════════════════════════');
+    console.log('🔍 DEBUG: Carregando visita em edição');
+    console.log('   • visitaId:', visitaId);
+    console.log('   • Drive conectado:', CONFIG_DRIVE?.conectado);
+    console.log('   • Dados da visita:', d);
+    console.log('   • Campos com "fotos_":', Object.keys(d).filter(k => k.startsWith('fotos_')));
+    console.log('═══════════════════════════════════════');
+    
     if (visitaId) {
         console.log('📸 Carregando fotos da visita em edição:', visitaId);
         
         // Verifica se usa Google Drive ou IndexedDB
         if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
             console.log('☁️ Carregando fotos do Google Drive...');
-            await carregarFotosGoogleDriveNaEdicao(visitaId);
+            
+            // 🆕 PRIMEIRO: Tenta carregar a partir dos dados salvos (fotos_drive_X)
+            let fotosCarregadasDeDados = false;
+            
+            for (const key of Object.keys(d)) {
+                if (key.startsWith('fotos_drive_')) {
+                    const secaoId = key.replace('fotos_drive_', '');
+                    console.log(`📋 Encontrado campo ${key} com referências de fotos`);
+                    
+                    try {
+                        const fotosIDs = JSON.parse(d[key]);
+                        console.log(`   • ${fotosIDs.length} foto(s) referenciadas`);
+                        
+                        const secao = document.querySelector(`[data-secao="${secaoId}"]`);
+                        if (!secao) {
+                            console.log(`   ⚠️ Seção ${secaoId} não encontrada`);
+                            continue;
+                        }
+                        
+                        const preview = secao.querySelector('.fotos-preview');
+                        if (!preview) {
+                            console.log(`   ⚠️ Preview não encontrado`);
+                            continue;
+                        }
+                        
+                        preview.innerHTML = ''; // Limpa preview
+                        
+                        for (const fotoRef of fotosIDs) {
+                            try {
+                                // Cria loading
+                                const divLoading = document.createElement('div');
+                                divLoading.className = 'foto-item';
+                                divLoading.innerHTML = '<div style="padding:20px;text-align:center;color:#666">📥 Carregando...</div>';
+                                preview.appendChild(divLoading);
+                                
+                                // Baixa a imagem do Drive
+                                const fileResponse = await fetch(
+                                    `https://www.googleapis.com/drive/v3/files/${fotoRef.driveId}?alt=media`,
+                                    {
+                                        headers: {
+                                            'Authorization': 'Bearer ' + CONFIG_DRIVE.accessToken
+                                        }
+                                    }
+                                );
+                                
+                                if (!fileResponse.ok) {
+                                    throw new Error('Erro ao baixar: ' + fileResponse.status);
+                                }
+                                
+                                const blob = await fileResponse.blob();
+                                const urlLocal = URL.createObjectURL(blob);
+                                
+                                // Remove loading
+                                preview.removeChild(divLoading);
+                                
+                                // Cria preview
+                                const div = document.createElement('div');
+                                div.className = 'foto-item';
+                                div.setAttribute('data-drive-id', fotoRef.driveId);
+                                div.setAttribute('data-drive-url', fotoRef.driveUrl || '');
+                                div.setAttribute('data-secao-id', secaoId);
+                                div.style.cssText = 'position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
+                                
+                                const img = document.createElement('img');
+                                img.src = urlLocal;
+                                img.alt = 'Foto do Drive';
+                                img.style.cssText = 'width:100%;height:120px;object-fit:cover;border-radius:4px;cursor:pointer;display:block';
+                                
+                                img.onclick = function(){
+                                    const modal = document.getElementById('modalFoto');
+                                    const modalImg = document.getElementById('imagemModal');
+                                    if (modal && modalImg) {
+                                        modalImg.src = urlLocal;
+                                        modal.style.display = 'flex';
+                                    }
+                                };
+                                
+                                const btnRemover = document.createElement('button');
+                                btnRemover.className = 'remover-foto';
+                                btnRemover.type = 'button';
+                                btnRemover.innerHTML = '×';
+                                btnRemover.onclick = async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Remover esta foto do Google Drive?')) {
+                                        try {
+                                            await removerFotoDrive(fotoRef.driveId);
+                                            URL.revokeObjectURL(urlLocal);
+                                            div.remove();
+                                            mostrarToast('✅ Foto removida!', 'sucesso');
+                                        } catch(error) {
+                                            console.error('Erro ao remover:', error);
+                                            mostrarToast('❌ Erro ao remover foto', 'erro');
+                                        }
+                                    }
+                                };
+                                
+                                div.appendChild(img);
+                                div.appendChild(btnRemover);
+                                preview.appendChild(div);
+                                
+                                fotosCarregadasDeDados = true;
+                                console.log(`   ✅ Foto ${fotoRef.driveId} carregada`);
+                                
+                            } catch(error) {
+                                console.error(`   ❌ Erro ao carregar foto ${fotoRef.driveId}:`, error);
+                                // Remove loading se houver
+                                const loadings = preview.querySelectorAll('.foto-item');
+                                loadings.forEach(l => {
+                                    if (l.innerHTML.includes('Carregando')) {
+                                        preview.removeChild(l);
+                                    }
+                                });
+                            }
+                        }
+                        
+                        console.log(`✅ Seção ${secaoId}: ${fotosIDs.length} foto(s) carregada(s) dos dados salvos`);
+                        
+                    } catch(error) {
+                        console.error(`❌ Erro ao processar ${key}:`, error);
+                    }
+                }
+            }
+            
+            // 🆕 SEGUNDO: Se não carregou fotos dos dados, busca pela API (fallback)
+            if (!fotosCarregadasDeDados) {
+                console.log('📡 Não há referências salvas, buscando pela API do Drive...');
+                await carregarFotosGoogleDriveNaEdicao(visitaId);
+            } else {
+                console.log('✅ Fotos carregadas dos dados salvos no localStorage');
+            }
+            
         } else {
             console.log('💾 Carregando fotos do IndexedDB...');
             
