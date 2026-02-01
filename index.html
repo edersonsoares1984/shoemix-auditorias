@@ -8266,7 +8266,135 @@ console.log('%c═════════════════════�
 function gerarMensagensParaLojas(mesAtual, anoAtual) {
     const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     const nomeMes = meses[mesAtual];
-    
+
+    // ─── Mapeamento de nomes das seções ───
+    const nomeSecoes = {
+        "1": "Recebimento de Mercadorias",
+        "2": "Etiquetagem de Produtos",
+        "3": "Organização e Limpeza do Estoque",
+        "4": "Organização dos Corredores",
+        "5": "Confecções e Acessórios",
+        "6": "Gatos e Defeitos",
+        "7": "Transferências e Remanejamentos"
+    };
+
+    // ─── Regras de respostas "corretas" por pergunta ───
+    const regrasGlobal = {
+        "1":{nf:["Não","Sim, dentro do prazo"],cx:["Não","Sim, dentro do prazo"],er:["Não"]},
+        "2":{et:["Não","Sim, dentro do prazo"],imp:["Sim"],arg:["Não","Sim, solicitado conserto"]},
+        "3":{limpo:["Sim"],pc:["Sim"],check:["Sim"]},
+        "4":{c1:["Sim"],c2:["Sim"],c3:["Sim"],c4:["Sim"]},
+        "5":{f1:["Sim"],f2:["Sim"]},
+        "6":{g1:["Sim"],g2:["Sim"]},
+        "7":{t1:["Sim"],t2:["Sim","Em Aberto, dentro do prazo"],t3:["Sim","Em Aberto, dentro do prazo"],t4:["Sim"]}
+    };
+
+    // ─── Texto legível para cada pergunta ───
+    const textosPergunta = {
+        nf:"Notas Fiscais pendentes no sistema",
+        cx:"Volumes com caixas fechadas",
+        er:"Erros de recebimento com cancelamento",
+        et:"Mercadorias aguardando etiquetagem",
+        imp:"Impressão de etiquetas",
+        arg:"Equipamento Argox com problema",
+        limpo:"Estoque limpo e higienizado",
+        pc:"Área do computador organizada",
+        check:"Checklist online utilizado corretamente",
+        c1:"Corredores alinhados e puxados",
+        c2:"Corredores numerados conforme padrão",
+        c3:"Produtos organizados por setor",
+        c4:"Acesso livre e sem obstruções",
+        f1:"Setorização correta (Marcas e Modelos)",
+        f2:"Armazenamento adequado",
+        g1:"Gatos identificados e separados",
+        g2:"Defeitos transferidos para loja 99",
+        t1:"Transferências realizadas corretamente",
+        t2:"Remanejamentos via sistema corretos",
+        t3:"Lotes em aberto corretos",
+        t4:"Separação de pés de vitrine correta"
+    };
+
+    // ─── Função: analisa uma visita e retorna detalhes por seção ───
+    function analisarVisita(dados) {
+        const resultado = {};
+        for (let secId in regrasGlobal) {
+            const perguntasSecao = regrasGlobal[secId];
+            // ✅ Chave correta: "pts1", "pts2"... (sem underscore)
+            const ptsSecao = Number(dados["pts" + secId] || 0);
+            const detalhes = { pontos: ptsSecao, corretas: [], incorretas: [] };
+
+            Object.keys(perguntasSecao).forEach(idPerg => {
+                const respostaCorreta = perguntasSecao[idPerg];
+                const valorMarcado = dados[idPerg];
+                if (valorMarcado) {
+                    if (respostaCorreta.includes(valorMarcado)) {
+                        detalhes.corretas.push({ id: idPerg, texto: textosPergunta[idPerg], resposta: valorMarcado });
+                    } else {
+                        detalhes.incorretas.push({ id: idPerg, texto: textosPergunta[idPerg], resposta: valorMarcado });
+                    }
+                }
+            });
+            resultado[secId] = detalhes;
+        }
+        return resultado;
+    }
+
+    // ─── Função: agrega análises de múltiplas visitas ───
+    // Média por seção é calculada pelos pontos (pts1..pts7).
+    // Para os itens falhos, conta quantas vezes cada pergunta falhou vs total de visitas.
+    // Só aparece como "perdido" se falhou em pelo menos uma visita.
+    function agregarVisitas(visitasMes) {
+        const agregado = {};
+        for (let secId in nomeSecoes) {
+            agregado[secId] = { somaP: 0, count: 0, falhasPorPergunta: {} };
+        }
+
+        visitasMes.forEach(v => {
+            const analise = analisarVisita(v.dados);
+            for (let secId in analise) {
+                agregado[secId].somaP += analise[secId].pontos;
+                agregado[secId].count++;
+
+                // Registra falhas por pergunta (chave = id da pergunta)
+                analise[secId].incorretas.forEach(item => {
+                    if (!agregado[secId].falhasPorPergunta[item.id]) {
+                        agregado[secId].falhasPorPergunta[item.id] = { texto: item.texto, falhas: 0, ultimaResposta: item.resposta };
+                    }
+                    agregado[secId].falhasPorPergunta[item.id].falhas++;
+                    agregado[secId].falhasPorPergunta[item.id].ultimaResposta = item.resposta;
+                });
+            }
+        });
+
+        // Monta resumo final
+        const totalVisitas = visitasMes.length;
+        const resumo = {};
+        for (let secId in agregado) {
+            const mediaSecao = agregado[secId].count > 0 ? agregado[secId].somaP / agregado[secId].count : 0;
+
+            // Converte falhasPorPergunta em array com info de frequência
+            const incorretas = [];
+            Object.keys(agregado[secId].falhasPorPergunta).forEach(idPerg => {
+                const info = agregado[secId].falhasPorPergunta[idPerg];
+                incorretas.push({
+                    id: idPerg,
+                    texto: info.texto,
+                    resposta: info.ultimaResposta,
+                    falhas: info.falhas,
+                    totalVisitas: totalVisitas
+                });
+            });
+
+            resumo[secId] = {
+                nome: nomeSecoes[secId],
+                media: mediaSecao,
+                mediaInt: Math.round(mediaSecao * 10) / 10,
+                incorretas: incorretas
+            };
+        }
+        return resumo;
+    }
+
     // Coleta dados de todas as lojas
     const dadosLojas = [];
     
@@ -8292,14 +8420,16 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                 nome: loja,
                 visitas: visitasMes.length,
                 media: media,
-                pontos: Math.round(media)
+                pontos: Math.round(media),
+                visitasMes: visitasMes
             });
         } else {
             dadosLojas.push({
                 nome: loja,
                 visitas: 0,
                 media: 0,
-                pontos: 0
+                pontos: 0,
+                visitasMes: []
             });
         }
     });
@@ -8307,22 +8437,16 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
     // Ordena por média para calcular posição no ranking
     const ranking = [...dadosLojas].filter(l => l.visitas > 0).sort((a,b) => b.media - a.media);
     
-    // 🆕 Calcula posições SEQUENCIAIS considerando EMPATES (1º,1º,1º → 2º,2º → 3º)
+    // Calcula posições SEQUENCIAIS considerando EMPATES
     const rankingComPosicoes = [];
     let posicaoAtual = 1;
     let mediaAnterior = null;
     
     ranking.forEach((loja, idx) => {
-        // Se a média for diferente da anterior, incrementa apenas 1 posição
         if (mediaAnterior !== null && loja.media < mediaAnterior) {
-            posicaoAtual++; // Incrementa só 1, não pula
+            posicaoAtual++;
         }
-        
-        rankingComPosicoes.push({
-            ...loja,
-            posicao: posicaoAtual
-        });
-        
+        rankingComPosicoes.push({ ...loja, posicao: posicaoAtual });
         mediaAnterior = loja.media;
     });
     
@@ -8332,7 +8456,6 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
     dadosLojas.forEach(loja => {
         let mensagem = '';
         
-        // Busca a posição correta considerando empates
         const lojaNoRanking = rankingComPosicoes.find(r => r.nome === loja.nome);
         const posicao = lojaNoRanking ? lojaNoRanking.posicao : 0;
         
@@ -8341,7 +8464,6 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
         mensagem += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
         
         if(loja.visitas === 0) {
-            // SEM VISITAS
             mensagem += `⚠️ *ATENÇÃO: Nenhuma auditoria realizada*\n\n`;
             mensagem += `Não foram registradas visitas de auditoria em ${nomeMes}.\n\n`;
             mensagem += `📌 *Ação necessária:*\n`;
@@ -8351,27 +8473,65 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
             mensagem += `_"A excelência começa com o compromisso diário!"_`;
             
         } else {
-            // COM VISITAS - Analisa desempenho
             const percentual = ((loja.media / 21) * 100).toFixed(0);
-            
-            // Verifica quantas lojas estão empatadas na mesma posição
             const lojasEmpatadas = rankingComPosicoes.filter(r => r.posicao === posicao).length;
             const textoEmpate = lojasEmpatadas > 1 ? ` (empatado com ${lojasEmpatadas - 1} ${lojasEmpatadas === 2 ? 'loja' : 'lojas'})` : '';
             
             mensagem += `🎯 *Pontuação: ${loja.pontos}/21 pontos (${percentual}%)*\n`;
             mensagem += `📍 *Posição no Ranking: ${posicao}º lugar${textoEmpate}*\n`;
             mensagem += `📋 *Total de Auditorias: ${loja.visitas}*\n\n`;
-            
+
+            // ─── ANÁLISE DETALHADA POR SEÇÃO ───
+            const resumoSecoes = agregarVisitas(loja.visitasMes);
+
+            // Separa seções perfeitas (media >= 3) e seções com perda
+            const secoesPerfeit = [];
+            const secoesComPerda = [];
+            for (let secId in resumoSecoes) {
+                const sec = resumoSecoes[secId];
+                if (sec.media >= 3) {
+                    secoesPerfeit.push(sec);
+                } else {
+                    secoesComPerda.push({ ...sec, secId: secId });
+                }
+            }
+
+            // Monta bloco de pontos positivos (seções com nota máxima)
+            let blocoPositivos = '';
+            if (secoesPerfeit.length > 0) {
+                blocoPositivos += `✅ *PONTOS POSITIVOS (nota máxima 3/3):*\n`;
+                secoesPerfeit.forEach(sec => {
+                    blocoPositivos += `• ${sec.nome}\n`;
+                });
+                blocoPositivos += `\n`;
+            }
+
+            // Monta bloco de pontos perdidos (seções abaixo da nota máxima)
+            let blocoPerda = '';
+            if (secoesComPerda.length > 0) {
+                blocoPerda += `⚠️ *PONTOS PERDIDOS (abaixo de 3/3):*\n`;
+                secoesComPerda.forEach(sec => {
+                    blocoPerda += `\n📌 ${sec.nome} — Nota média: ${sec.mediaInt}/3\n`;
+                    if (sec.incorretas.length > 0) {
+                        sec.incorretas.forEach(item => {
+                            blocoPerda += `   ❌ ${item.texto}\n`;
+                            blocoPerda += `       Situação: ${item.resposta}\n`;
+                            // Se há mais de uma visita no mês, mostra frequência da falha
+                            if (item.totalVisitas > 1) {
+                                blocoPerda += `       Ocorreu em ${item.falhas} de ${item.totalVisitas} visita${item.totalVisitas > 1 ? 's' : ''}\n`;
+                            }
+                        });
+                    }
+                });
+                blocoPerda += `\n`;
+            }
+
+            // ─── MENSAGENS POR CLASSIFICAÇÃO (com detalhes) ───
             if(loja.media >= 18) {
                 // EXCELENTE (18-21)
                 mensagem += `🟢 *DESEMPENHO EXCELENTE!*\n\n`;
-                mensagem += `🏆 Parabéns à toda equipe!\n\n`;
-                mensagem += `Vocês demonstraram comprometimento excepcional com:\n`;
-                mensagem += `✅ Organização impecável\n`;
-                mensagem += `✅ Processos bem executados\n`;
-                mensagem += `✅ Atenção aos detalhes\n`;
-                mensagem += `✅ Limpeza e higiene exemplares\n\n`;
-                
+                mensagem += `🏆 Parabéns à toda equipe pela dedicação!\n\n`;
+
                 if(posicao === 1) {
                     mensagem += `👑 *LÍDER DO RANKING!*\n`;
                     mensagem += `Vocês são referência para toda a rede!\n\n`;
@@ -8379,7 +8539,19 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                     mensagem += `🥇 *TOP 3 DA REDE!*\n`;
                     mensagem += `Excelente trabalho!\n\n`;
                 }
-                
+
+                // Mostra positivos
+                mensagem += blocoPositivos;
+
+                // Mesmo sendo excelente, se há perda, mostra
+                if (secoesComPerda.length > 0) {
+                    mensagem += `📉 *Mesmo com resultado excelente, houve perda de pontos:*\n`;
+                    mensagem += blocoPerda;
+                    mensagem += `💡 *Para chegar à nota máxima (21/21), atenção nesses pontos no próximo ciclo.*\n\n`;
+                } else {
+                    mensagem += `🏅 *Nota máxima em TODAS as áreas! Perfeição atingida!*\n\n`;
+                }
+
                 mensagem += `💡 *Para manter a excelência:*\n`;
                 mensagem += `• Compartilhar boas práticas com outras lojas\n`;
                 mensagem += `• Manter consistência nas próximas auditorias\n`;
@@ -8389,34 +8561,37 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
             } else if(loja.media >= 14) {
                 // BOM (14-17)
                 mensagem += `🔵 *BOM DESEMPENHO!*\n\n`;
-                mensagem += `👏 Parabéns pelo trabalho!\n\n`;
-                mensagem += `A equipe está no caminho certo, com bons resultados em:\n`;
-                mensagem += `✅ Processos gerais\n`;
-                mensagem += `✅ Organização do estoque\n`;
-                mensagem += `✅ Manutenção da loja\n\n`;
-                
-                mensagem += `🎯 *Oportunidades de melhoria:*\n`;
-                mensagem += `• Atenção aos detalhes que fazem diferença\n`;
-                mensagem += `• Revisar processos com pontuação mais baixa\n`;
-                mensagem += `• Buscar a excelência em todas as áreas\n\n`;
-                
-                mensagem += `💪 *Próximo objetivo: 18+ pontos!*\n`;
-                mensagem += `Vocês têm potencial para chegar à excelência.\n\n`;
+                mensagem += `👏 Parabéns pelo trabalho da equipe!\n\n`;
+
+                // Positivos
+                mensagem += blocoPositivos;
+
+                // Pontos perdidos com detalhes
+                if (secoesComPerda.length > 0) {
+                    mensagem += blocoPerda;
+                }
+
+                mensagem += `💪 *Próximo objetivo: 18+ pontos (Excelente)!*\n`;
+                mensagem += `Vocês têm potencial para chegar à excelência. Foque nas áreas acima.\n\n`;
                 mensagem += `_"Bom é bom, mas excelente é melhor!"_`;
                 
             } else if(loja.media >= 10) {
                 // REGULAR (10-13)
                 mensagem += `🟡 *ATENÇÃO: Desempenho Regular*\n\n`;
-                mensagem += `⚠️ A equipe precisa de melhorias urgentes!\n\n`;
-                mensagem += `📊 *Situação atual:*\n`;
-                mensagem += `• Processos precisam de ajustes\n`;
-                mensagem += `• Organização precisa melhorar\n`;
-                mensagem += `• Atenção aos padrões da rede\n\n`;
+                mensagem += `⚠️ A equipe precisa de melhorias!\n\n`;
+
+                // Positivos (se houver)
+                mensagem += blocoPositivos;
+
+                // Pontos perdidos com detalhes
+                if (secoesComPerda.length > 0) {
+                    mensagem += blocoPerda;
+                }
                 
-                mensagem += `🔧 *AÇÕES IMEDIATAS NECESSÁRIAS:*\n`;
+                mensagem += `🔧 *AÇÕES NECESSÁRIAS:*\n`;
                 mensagem += `• Reunião com encarregado e gerente\n`;
-                mensagem += `• Revisar TODOS os processos\n`;
-                mensagem += `• Treinamento da equipe\n`;
+                mensagem += `• Revisar os processos com perda de pontos\n`;
+                mensagem += `• Treinamento da equipe nas áreas críticas\n`;
                 mensagem += `• Acompanhamento semanal\n\n`;
                 
                 mensagem += `🎯 *Meta: 14+ pontos no próximo mês!*\n\n`;
@@ -8426,17 +8601,18 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                 // CRÍTICO (0-9)
                 mensagem += `🔴 *SITUAÇÃO CRÍTICA!*\n\n`;
                 mensagem += `🚨 *ATENÇÃO MÁXIMA NECESSÁRIA!*\n\n`;
-                mensagem += `A pontuação está muito abaixo do esperado.\n\n`;
-                
-                mensagem += `⚠️ *PROBLEMAS IDENTIFICADOS:*\n`;
-                mensagem += `• Processos não estão sendo seguidos\n`;
-                mensagem += `• Organização comprometida\n`;
-                mensagem += `• Padrões da rede não cumpridos\n`;
-                mensagem += `• Risco à qualidade do atendimento\n\n`;
+
+                // Positivos (se houver algum)
+                mensagem += blocoPositivos;
+
+                // Pontos perdidos com detalhes
+                if (secoesComPerda.length > 0) {
+                    mensagem += blocoPerda;
+                }
                 
                 mensagem += `🔧 *PLANO DE AÇÃO URGENTE:*\n`;
                 mensagem += `1️⃣ Reunião IMEDIATA com gerente e encarregado\n`;
-                mensagem += `2️⃣ Revisão completa de TODOS os processos\n`;
+                mensagem += `2️⃣ Revisão completa dos processos com perda\n`;
                 mensagem += `3️⃣ Treinamento intensivo da equipe\n`;
                 mensagem += `4️⃣ Acompanhamento DIÁRIO\n`;
                 mensagem += `5️⃣ Auditoria de revisão em 15 dias\n\n`;
