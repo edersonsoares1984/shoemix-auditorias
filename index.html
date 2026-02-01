@@ -8582,18 +8582,18 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
 
                 // ── Premiação ──
                 mensagem += `💰 *PREMIAÇÃO MENSAL:*\n`;
-                mensagem += `Pelo resultado EXCELENTE, a equipe conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
-                if (mesesComBonus === 3) {
-                    mensagem += `🏆 *PREMIAÇÃO ACUMULADA (3 meses consecutivos):*\n`;
-                    mensagem += `• ${meses[mesesAcumulados[2].mes]}/${mesesAcumulados[2].ano}: R$ ${mesesAcumulados[2].bonus.toFixed(2)}\n`;
-                    mensagem += `• ${meses[mesesAcumulados[1].mes]}/${mesesAcumulados[1].ano}: R$ ${mesesAcumulados[1].bonus.toFixed(2)}\n`;
-                    mensagem += `• ${meses[mesesAcumulados[0].mes]}/${mesesAcumulados[0].ano}: R$ ${mesesAcumulados[0].bonus.toFixed(2)}\n`;
-                    mensagem += `*Total acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
-                } else if (mesesComBonus >= 2) {
-                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n`;
-                    mensagem += `Vocês estão em ${mesesComBonus} de 3 meses com premiação. Continue!\n\n`;
-                } else {
-                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n\n`;
+                mensagem += `Pelo resultado EXCELENTE, o encarregado de estoque conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
+                
+                if (mesesComBonus > 0) {
+                    mensagem += `📈 *PREMIAÇÃO ACUMULADA (últimos 3 meses):*\n`;
+                    // Mostra os meses do mais antigo para o mais recente
+                    for (let i = mesesAcumulados.length - 1; i >= 0; i--) {
+                        if (mesesAcumulados[i].bonus > 0) {
+                            mensagem += `${meses[mesesAcumulados[i].mes]}/${mesesAcumulados[i].ano}: R$ ${mesesAcumulados[i].bonus.toFixed(2)}\n`;
+                        }
+                    }
+                    mensagem += `━━━━━━━━━━━━━━━━━━━\n`;
+                    mensagem += `*Acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
                 }
 
                 // Mostra positivos
@@ -8621,18 +8621,18 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
 
                 // ── Premiação ──
                 mensagem += `💰 *PREMIAÇÃO MENSAL:*\n`;
-                mensagem += `Pelo resultado BOM, a equipe conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
-                if (mesesComBonus === 3) {
-                    mensagem += `🏆 *PREMIAÇÃO ACUMULADA (3 meses consecutivos):*\n`;
-                    mensagem += `• ${meses[mesesAcumulados[2].mes]}/${mesesAcumulados[2].ano}: R$ ${mesesAcumulados[2].bonus.toFixed(2)}\n`;
-                    mensagem += `• ${meses[mesesAcumulados[1].mes]}/${mesesAcumulados[1].ano}: R$ ${mesesAcumulados[1].bonus.toFixed(2)}\n`;
-                    mensagem += `• ${meses[mesesAcumulados[0].mes]}/${mesesAcumulados[0].ano}: R$ ${mesesAcumulados[0].bonus.toFixed(2)}\n`;
-                    mensagem += `*Total acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
-                } else if (mesesComBonus >= 2) {
-                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n`;
-                    mensagem += `Vocês estão em ${mesesComBonus} de 3 meses com premiação. Continue!\n\n`;
-                } else {
-                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n\n`;
+                mensagem += `Pelo resultado BOM, o encarregado de estoque conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
+                
+                if (mesesComBonus > 0) {
+                    mensagem += `📈 *PREMIAÇÃO ACUMULADA (últimos 3 meses):*\n`;
+                    // Mostra os meses do mais antigo para o mais recente
+                    for (let i = mesesAcumulados.length - 1; i >= 0; i--) {
+                        if (mesesAcumulados[i].bonus > 0) {
+                            mensagem += `${meses[mesesAcumulados[i].mes]}/${mesesAcumulados[i].ano}: R$ ${mesesAcumulados[i].bonus.toFixed(2)}\n`;
+                        }
+                    }
+                    mensagem += `━━━━━━━━━━━━━━━━━━━\n`;
+                    mensagem += `*Acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
                 }
 
                 // Positivos
