@@ -3298,10 +3298,14 @@ function gerarRelatorioDiretoria(mesAtual, anoAtual) {
                     </div>
                 </div>
             </div>
-            <div style="display:flex;gap:10px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
                 <button onclick="atualizarRelatorioDiretoria()" 
                         style="background:#000;color:#fff;border:none;padding:12px 24px;border-radius:5px;cursor:pointer;font-weight:600">
                     🔄 Atualizar
+                </button>
+                <button onclick="abrirModalMensagens()" 
+                        style="background:#28a745;color:#fff;border:none;padding:12px 24px;border-radius:5px;cursor:pointer;font-weight:600">
+                    📱 Gerar Mensagens
                 </button>
                 <button onclick="imprimirRelatorioDiretoria()" 
                         style="background:#f00;color:#fff;border:none;padding:12px 24px;border-radius:5px;cursor:pointer;font-weight:600">
@@ -3389,12 +3393,12 @@ function gerarRelatorioDiretoria(mesAtual, anoAtual) {
             </thead>
             <tbody>`;
     
-    // Calcula posições corretamente com empates (posições sequenciais)
+    // 🆕 Calcula posições SEQUENCIAIS com empates (1º,1º,1º → 2º,2º → 3º)
     let posicaoAtual = 1;
     let mediaAnterior = null;
     
     ranking.forEach((loja, idx) => {
-        // Se a média mudou, incrementa a posição
+        // Se a média mudou, incrementa apenas 1 posição (não pula empates)
         if (mediaAnterior !== null && loja.media < mediaAnterior) {
             posicaoAtual++;
         }
@@ -8258,6 +8262,308 @@ async function anexarFotosGoogleDrive(input) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 console.log('%c═══════════════════════════════════════════════════', 'color: #4285f4; font-weight: bold');
+// 📱 GERAR MENSAGENS MOTIVACIONAIS PARA CADA LOJA
+function gerarMensagensParaLojas(mesAtual, anoAtual) {
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const nomeMes = meses[mesAtual];
+    
+    // Coleta dados de todas as lojas
+    const dadosLojas = [];
+    
+    lojas.forEach((loja, index) => {
+        const hist = JSON.parse(localStorage.getItem("hist_"+index) || "[]");
+        const visitasMes = hist.filter(v => {
+            let d;
+            if(typeof v.data === 'string' && v.data.includes('/')) {
+                const p = v.data.split(' ')[0].split('/');
+                if(p.length === 3) d = new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+            } else {
+                d = new Date(v.data);
+            }
+            return d && !isNaN(d.getTime()) && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+        });
+        
+        if(visitasMes.length > 0) {
+            let somaPontos = 0;
+            visitasMes.forEach(v => somaPontos += calculaTotalPontos(v.dados));
+            const media = somaPontos / visitasMes.length;
+            
+            dadosLojas.push({
+                nome: loja,
+                visitas: visitasMes.length,
+                media: media,
+                pontos: Math.round(media)
+            });
+        } else {
+            dadosLojas.push({
+                nome: loja,
+                visitas: 0,
+                media: 0,
+                pontos: 0
+            });
+        }
+    });
+    
+    // Ordena por média para calcular posição no ranking
+    const ranking = [...dadosLojas].filter(l => l.visitas > 0).sort((a,b) => b.media - a.media);
+    
+    // 🆕 Calcula posições SEQUENCIAIS considerando EMPATES (1º,1º,1º → 2º,2º → 3º)
+    const rankingComPosicoes = [];
+    let posicaoAtual = 1;
+    let mediaAnterior = null;
+    
+    ranking.forEach((loja, idx) => {
+        // Se a média for diferente da anterior, incrementa apenas 1 posição
+        if (mediaAnterior !== null && loja.media < mediaAnterior) {
+            posicaoAtual++; // Incrementa só 1, não pula
+        }
+        
+        rankingComPosicoes.push({
+            ...loja,
+            posicao: posicaoAtual
+        });
+        
+        mediaAnterior = loja.media;
+    });
+    
+    // Gera mensagens para cada loja
+    const mensagens = [];
+    
+    dadosLojas.forEach(loja => {
+        let mensagem = '';
+        
+        // Busca a posição correta considerando empates
+        const lojaNoRanking = rankingComPosicoes.find(r => r.nome === loja.nome);
+        const posicao = lojaNoRanking ? lojaNoRanking.posicao : 0;
+        
+        // CABEÇALHO
+        mensagem += `📊 *RESULTADO ${nomeMes.toUpperCase()}/${anoAtual} - ${loja.nome}*\n`;
+        mensagem += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        
+        if(loja.visitas === 0) {
+            // SEM VISITAS
+            mensagem += `⚠️ *ATENÇÃO: Nenhuma auditoria realizada*\n\n`;
+            mensagem += `Não foram registradas visitas de auditoria em ${nomeMes}.\n\n`;
+            mensagem += `📌 *Ação necessária:*\n`;
+            mensagem += `• Agendar auditoria com urgência\n`;
+            mensagem += `• Garantir cumprimento dos processos\n`;
+            mensagem += `• Aguardamos contato da equipe\n\n`;
+            mensagem += `_"A excelência começa com o compromisso diário!"_`;
+            
+        } else {
+            // COM VISITAS - Analisa desempenho
+            const percentual = ((loja.media / 21) * 100).toFixed(0);
+            
+            // Verifica quantas lojas estão empatadas na mesma posição
+            const lojasEmpatadas = rankingComPosicoes.filter(r => r.posicao === posicao).length;
+            const textoEmpate = lojasEmpatadas > 1 ? ` (empatado com ${lojasEmpatadas - 1} ${lojasEmpatadas === 2 ? 'loja' : 'lojas'})` : '';
+            
+            mensagem += `🎯 *Pontuação: ${loja.pontos}/21 pontos (${percentual}%)*\n`;
+            mensagem += `📍 *Posição no Ranking: ${posicao}º lugar${textoEmpate}*\n`;
+            mensagem += `📋 *Total de Auditorias: ${loja.visitas}*\n\n`;
+            
+            if(loja.media >= 18) {
+                // EXCELENTE (18-21)
+                mensagem += `🟢 *DESEMPENHO EXCELENTE!*\n\n`;
+                mensagem += `🏆 Parabéns à toda equipe!\n\n`;
+                mensagem += `Vocês demonstraram comprometimento excepcional com:\n`;
+                mensagem += `✅ Organização impecável\n`;
+                mensagem += `✅ Processos bem executados\n`;
+                mensagem += `✅ Atenção aos detalhes\n`;
+                mensagem += `✅ Limpeza e higiene exemplares\n\n`;
+                
+                if(posicao === 1) {
+                    mensagem += `👑 *LÍDER DO RANKING!*\n`;
+                    mensagem += `Vocês são referência para toda a rede!\n\n`;
+                } else if(posicao <= 3) {
+                    mensagem += `🥇 *TOP 3 DA REDE!*\n`;
+                    mensagem += `Excelente trabalho!\n\n`;
+                }
+                
+                mensagem += `💡 *Para manter a excelência:*\n`;
+                mensagem += `• Compartilhar boas práticas com outras lojas\n`;
+                mensagem += `• Manter consistência nas próximas auditorias\n`;
+                mensagem += `• Continuar com o alto padrão de qualidade\n\n`;
+                mensagem += `_"O sucesso é a soma de pequenos esforços repetidos!"_`;
+                
+            } else if(loja.media >= 14) {
+                // BOM (14-17)
+                mensagem += `🔵 *BOM DESEMPENHO!*\n\n`;
+                mensagem += `👏 Parabéns pelo trabalho!\n\n`;
+                mensagem += `A equipe está no caminho certo, com bons resultados em:\n`;
+                mensagem += `✅ Processos gerais\n`;
+                mensagem += `✅ Organização do estoque\n`;
+                mensagem += `✅ Manutenção da loja\n\n`;
+                
+                mensagem += `🎯 *Oportunidades de melhoria:*\n`;
+                mensagem += `• Atenção aos detalhes que fazem diferença\n`;
+                mensagem += `• Revisar processos com pontuação mais baixa\n`;
+                mensagem += `• Buscar a excelência em todas as áreas\n\n`;
+                
+                mensagem += `💪 *Próximo objetivo: 18+ pontos!*\n`;
+                mensagem += `Vocês têm potencial para chegar à excelência.\n\n`;
+                mensagem += `_"Bom é bom, mas excelente é melhor!"_`;
+                
+            } else if(loja.media >= 10) {
+                // REGULAR (10-13)
+                mensagem += `🟡 *ATENÇÃO: Desempenho Regular*\n\n`;
+                mensagem += `⚠️ A equipe precisa de melhorias urgentes!\n\n`;
+                mensagem += `📊 *Situação atual:*\n`;
+                mensagem += `• Processos precisam de ajustes\n`;
+                mensagem += `• Organização precisa melhorar\n`;
+                mensagem += `• Atenção aos padrões da rede\n\n`;
+                
+                mensagem += `🔧 *AÇÕES IMEDIATAS NECESSÁRIAS:*\n`;
+                mensagem += `• Reunião com encarregado e gerente\n`;
+                mensagem += `• Revisar TODOS os processos\n`;
+                mensagem += `• Treinamento da equipe\n`;
+                mensagem += `• Acompanhamento semanal\n\n`;
+                
+                mensagem += `🎯 *Meta: 14+ pontos no próximo mês!*\n\n`;
+                mensagem += `_"Cada dia é uma nova oportunidade de melhorar!"_`;
+                
+            } else {
+                // CRÍTICO (0-9)
+                mensagem += `🔴 *SITUAÇÃO CRÍTICA!*\n\n`;
+                mensagem += `🚨 *ATENÇÃO MÁXIMA NECESSÁRIA!*\n\n`;
+                mensagem += `A pontuação está muito abaixo do esperado.\n\n`;
+                
+                mensagem += `⚠️ *PROBLEMAS IDENTIFICADOS:*\n`;
+                mensagem += `• Processos não estão sendo seguidos\n`;
+                mensagem += `• Organização comprometida\n`;
+                mensagem += `• Padrões da rede não cumpridos\n`;
+                mensagem += `• Risco à qualidade do atendimento\n\n`;
+                
+                mensagem += `🔧 *PLANO DE AÇÃO URGENTE:*\n`;
+                mensagem += `1️⃣ Reunião IMEDIATA com gerente e encarregado\n`;
+                mensagem += `2️⃣ Revisão completa de TODOS os processos\n`;
+                mensagem += `3️⃣ Treinamento intensivo da equipe\n`;
+                mensagem += `4️⃣ Acompanhamento DIÁRIO\n`;
+                mensagem += `5️⃣ Auditoria de revisão em 15 dias\n\n`;
+                
+                mensagem += `🎯 *Meta URGENTE: 14+ pontos!*\n\n`;
+                mensagem += `_"É hora de virar o jogo! Contem com nosso apoio!"_`;
+            }
+        }
+        
+        mensagem += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        mensagem += `📞 Dúvidas? Entre em contato com a coordenação.\n`;
+        mensagem += `🏪 *Shoemix Calçados - Excelência em Gestão*`;
+        
+        mensagens.push({
+            loja: loja.nome,
+            mensagem: mensagem,
+            status: loja.media >= 18 ? 'excelente' : loja.media >= 14 ? 'bom' : loja.media >= 10 ? 'regular' : loja.visitas === 0 ? 'sem_visita' : 'critico'
+        });
+    });
+    
+    return mensagens;
+}
+
+// 📱 ABRIR MODAL COM MENSAGENS
+function abrirModalMensagens() {
+    const mes = parseInt(document.getElementById('seletorMesDiretoria')?.value || new Date().getMonth());
+    const ano = parseInt(document.getElementById('seletorAnoDiretoria')?.value || new Date().getFullYear());
+    
+    const mensagens = gerarMensagensParaLojas(mes, ano);
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;overflow-y:auto;padding:20px';
+    
+    let html = `
+        <div style="max-width:800px;margin:0 auto;background:#fff;border-radius:12px;padding:30px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;border-bottom:3px solid #f00;padding-bottom:15px">
+                <h2 style="margin:0;color:#f00">📱 Mensagens para as Lojas - ${meses[mes]}/${ano}</h2>
+                <button onclick="this.closest('div').parentElement.parentElement.remove()" 
+                        style="background:#dc3545;color:#fff;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;font-size:1.1em">
+                    ✕ Fechar
+                </button>
+            </div>
+            
+            <div style="margin-bottom:20px;padding:15px;background:#e3f2fd;border-left:4px solid #2196f3;border-radius:4px">
+                <strong>💡 Como usar:</strong><br>
+                • Clique em "📋 Copiar" para copiar a mensagem<br>
+                • Cole no WhatsApp, e-mail ou sistema da empresa<br>
+                • Envie para a equipe da loja correspondente
+            </div>
+    `;
+    
+    mensagens.forEach((item, idx) => {
+        let corStatus = '#dc3545';
+        let icone = '🔴';
+        
+        if(item.status === 'excelente') {
+            corStatus = '#28a745';
+            icone = '🟢';
+        } else if(item.status === 'bom') {
+            corStatus = '#17a2b8';
+            icone = '🔵';
+        } else if(item.status === 'regular') {
+            corStatus = '#ffc107';
+            icone = '🟡';
+        } else if(item.status === 'sem_visita') {
+            corStatus = '#6c757d';
+            icone = '⚠️';
+        }
+        
+        html += `
+            <div style="margin-bottom:20px;border:2px solid ${corStatus};border-radius:8px;overflow:hidden">
+                <div style="background:${corStatus};color:#fff;padding:15px;display:flex;justify-content:space-between;align-items:center">
+                    <strong style="font-size:1.2em">${icone} ${item.loja}</strong>
+                    <button onclick="copiarMensagem(${idx})" id="btnCopiar${idx}"
+                            style="background:#fff;color:${corStatus};border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-weight:600">
+                        📋 Copiar Mensagem
+                    </button>
+                </div>
+                <div style="padding:20px;background:#f9f9f9">
+                    <pre id="mensagem${idx}" style="white-space:pre-wrap;font-family:Arial,sans-serif;font-size:0.95em;line-height:1.6;margin:0">${item.mensagem}</pre>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+            <div style="text-align:center;margin-top:30px;padding-top:20px;border-top:2px solid #ddd">
+                <button onclick="copiarTodasMensagens()" 
+                        style="background:#000;color:#fff;border:none;padding:15px 30px;border-radius:8px;cursor:pointer;font-size:1.1em;font-weight:600">
+                    📋 Copiar TODAS as Mensagens
+                </button>
+            </div>
+        </div>
+    `;
+    
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+    
+    // Funções auxiliares
+    window.copiarMensagem = function(idx) {
+        const texto = document.getElementById('mensagem' + idx).textContent;
+        navigator.clipboard.writeText(texto).then(() => {
+            const btn = document.getElementById('btnCopiar' + idx);
+            const textoOriginal = btn.textContent;
+            btn.textContent = '✅ Copiado!';
+            btn.style.background = '#28a745';
+            btn.style.color = '#fff';
+            setTimeout(() => {
+                btn.textContent = textoOriginal;
+                btn.style.background = '#fff';
+                btn.style.color = '';
+            }, 2000);
+        });
+    };
+    
+    window.copiarTodasMensagens = function() {
+        let todasMensagens = '';
+        mensagens.forEach((item, idx) => {
+            todasMensagens += item.mensagem + '\n\n\n';
+        });
+        
+        navigator.clipboard.writeText(todasMensagens).then(() => {
+            alert('✅ Todas as mensagens foram copiadas!\n\nCole no seu aplicativo de mensagens preferido.');
+        });
+    };
+}
 console.log('%c🚀 SISTEMA SHOEMIX CARREGADO', 'color: #4285f4; font-weight: bold; font-size: 16px');
 console.log('%c═══════════════════════════════════════════════════', 'color: #4285f4; font-weight: bold');
 console.log('');
