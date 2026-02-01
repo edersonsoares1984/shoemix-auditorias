@@ -3694,6 +3694,17 @@ function atualizarRelatorioDiretoria() {
     const mes = parseInt(document.getElementById('seletorMesDiretoria').value);
     const ano = parseInt(document.getElementById('seletorAnoDiretoria').value);
     gerarRelatorioDiretoria(mes, ano);
+    
+    // 🆕 Atualiza também o ranking dinâmico
+    setTimeout(async () => {
+        const rankingAntigo = document.getElementById('rankingDinamico');
+        if (rankingAntigo) {
+            const novoRanking = await criarRankingLojas(mes, ano);
+            novoRanking.id = 'rankingDinamico';
+            rankingAntigo.parentNode.replaceChild(novoRanking, rankingAntigo);
+            console.log(`✅ Ranking atualizado para ${mes+1}/${ano}`);
+        }
+    }, 500);
 }
 
 function imprimirRelatorioDiretoria() {
@@ -6458,8 +6469,12 @@ function criarGraficoEvolucao(dados) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 // Função para buscar dados reais das lojas do localStorage ou Google Sheets
-async function buscarDadosRankingLojas() {
+// 🆕 Agora aceita mesAtual e anoAtual para filtrar por período
+async function buscarDadosRankingLojas(mesAtual = null, anoAtual = null) {
     const dadosLojas = [];
+    const filtrarPorPeriodo = (mesAtual !== null && anoAtual !== null);
+    
+    console.log(`📊 buscarDadosRankingLojas chamado - Filtro: ${filtrarPorPeriodo ? `${mesAtual+1}/${anoAtual}` : 'TODOS OS TEMPOS'}`);
     
     // Array de lojas do sistema (mesma ordem usada no sistema principal)
     const lojasConfig = [
@@ -6518,7 +6533,22 @@ async function buscarDadosRankingLojas() {
     console.log('💾 Usando dados do localStorage para ranking');
     lojasConfig.forEach((lojaInfo) => {
         // Busca histórico usando o índice correto (posição no array lojas)
-        const historico = JSON.parse(localStorage.getItem(`hist_${lojaInfo.indice}`) || '[]');
+        let historico = JSON.parse(localStorage.getItem(`hist_${lojaInfo.indice}`) || '[]');
+        
+        // 🆕 FILTRA POR MÊS/ANO se solicitado
+        if (filtrarPorPeriodo) {
+            historico = historico.filter(v => {
+                let d;
+                if(typeof v.data === 'string' && v.data.includes('/')) {
+                    const p = v.data.split(' ')[0].split('/');
+                    if(p.length === 3) d = new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+                } else {
+                    d = new Date(v.data);
+                }
+                return d && !isNaN(d.getTime()) && d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+            });
+            console.log(`   ${lojaInfo.nome}: ${historico.length} visitas em ${mesAtual+1}/${anoAtual}`);
+        }
         
         if (historico.length > 0) {
             // Calcula a MÉDIA de todas as visitas (igual ao Ranking de Performance)
@@ -6536,22 +6566,24 @@ async function buscarDadosRankingLojas() {
                 indice: lojaInfo.indice,
                 nome: lojaInfo.nome,
                 cidade: lojaInfo.cidade,
-                pontuacao: pontuacaoMedia,  // MÉDIA de todas as visitas
+                pontuacao: pontuacaoMedia,  // MÉDIA das visitas (filtradas ou não)
                 encarregado: ultimaVisita.dados?.encarregado || 'Não informado',
                 totalVisitas: historico.length
             });
         } else {
             // Loja sem histórico - não adiciona ao ranking
-            console.log(`${lojaInfo.nome} sem histórico de visitas`);
+            if (!filtrarPorPeriodo) {
+                console.log(`${lojaInfo.nome} sem histórico de visitas`);
+            }
         }
     });
     
     return dadosLojas;
 }
 
-async function criarRankingLojas() {
-    // Busca dados reais das lojas
-    const dadosLojas = await buscarDadosRankingLojas();
+async function criarRankingLojas(mesAtual = null, anoAtual = null) {
+    // Busca dados reais das lojas (agora filtra por mês/ano se fornecido)
+    const dadosLojas = await buscarDadosRankingLojas(mesAtual, anoAtual);
     
     // Ordena lojas por pontuação (maior para menor)
     // Em caso de empate, mantém a ordem alfabética do nome
@@ -6775,8 +6807,13 @@ window.abrirRelatorioDiretoria = async function() {
             // ❌ DASHBOARD DE PERFORMANCE REMOVIDO - não é necessário
             // O usuário prefere se basear em todas as visitas, não nas últimas
             
-            // Adiciona apenas o Ranking de Lojas
-            const ranking = await criarRankingLojas();
+            // 🆕 Pega mês/ano atual do seletor
+            const mesAtual = new Date().getMonth();
+            const anoAtual = new Date().getFullYear();
+            
+            // Adiciona apenas o Ranking de Lojas FILTRADO PELO MÊS/ANO
+            const ranking = await criarRankingLojas(mesAtual, anoAtual);
+            ranking.id = 'rankingDinamico'; // ID para poder atualizar depois
             const primeiroElemento = modalBody.querySelector('.dashboard-grid')?.parentElement;
             if (primeiroElemento) {
                 primeiroElemento.parentNode.insertBefore(ranking, primeiroElemento);
