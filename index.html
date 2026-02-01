@@ -2921,7 +2921,11 @@ let lojaAtual=0,visitaEmEdicao=null;
 function criarTabs(){const t=document.getElementById("tabs");t.innerHTML="";lojas.forEach((l,i)=>{const b=document.createElement("button");b.innerHTML=l.replace('-','<br>');b.onclick=()=>trocarLoja(i);if(i===lojaAtual)b.classList.add("active");t.appendChild(b)})}
 function trocarLoja(i){lojaAtual=i;criarTabs();montarTela();carregar();atualizarHistorico();const rm=document.getElementById("resumoMensal"),rg=document.getElementById("resumoGeral");if(rm)rm.style.display="none";if(rg)rg.style.display="none";document.querySelectorAll('.pergunta').forEach(p=>{p.classList.remove('resposta-boa','resposta-ruim','resposta-neutra')})}
 function simNao(txt,id,opcoes="padrao"){let html=`<div class="pergunta">- ${txt}<div class="opcoes">`;if(opcoes==="nf_cx"||opcoes==="etiquetar"){html+=`<label><input type="radio" name="${id}" value="Sim, fora do prazo" onchange="calcularPontuacaoSecao()"> Sim, fora do prazo</label><label><input type="radio" name="${id}" value="Sim, dentro do prazo" onchange="calcularPontuacaoSecao()"> Sim, dentro do prazo</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="impressora"){html+=`<label><input type="radio" name="${id}" value="Sim, solicitado conserto" onchange="calcularPontuacaoSecao()"> Sim, solicitado conserto</label><label><input type="radio" name="${id}" value="Sim, não solicitado" onchange="calcularPontuacaoSecao()"> Sim, não solicitado</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}else if(opcoes==="remanejamento"||opcoes==="lotes"){html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Em Aberto, dentro do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, dentro do prazo</label><label><input type="radio" name="${id}" value="Em Aberto, fora do prazo" onchange="calcularPontuacaoSecao()"> Em Aberto, fora do prazo</label>`}else{html+=`<label><input type="radio" name="${id}" value="Sim" onchange="calcularPontuacaoSecao()"> Sim</label><label><input type="radio" name="${id}" value="Não" onchange="calcularPontuacaoSecao()"> Não</label>`}html+=`</div><textarea id="${id}" placeholder="Descreva quando necessário..."></textarea></div>`;return html}
-function secao(n,t,c,secId){return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" class="foto-input" onchange="anexarFoto(this)" onfocus="salvarAntesDeFoto()" onclick="salvarAntesDeFoto()" multiple></label><div class="fotos-preview"></div></div>`}
+function secao(n,t,c,secId){
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const avisoMobile = isMobile ? '<small style="color:#f57c00;display:block;margin-top:5px">📱 <strong>MOBILE:</strong> Anexe 1 foto por vez para melhor desempenho</small>' : '';
+    return`<div class="section" data-secao="${secId}"><h3>${n} – ${t}</h3>${c}<label>Pontuação Automática (0 a 3):<select class="pts" data-pts-id="pts_${secId}" disabled style="background:#f0f0f0;cursor:not-allowed"><option value="0">0 - Insatisfatório</option><option value="1">1 - Regular</option><option value="2">2 - Bom</option><option value="3">3 - Excelente</option></select><small style="color:#666">📊 Pontuação calculada automaticamente</small></label><label>Observações:</label><textarea id="obs_${secId}"></textarea><label>Anexo (Foto): <input type="file" accept="image/png,image/jpeg,image/jpg,image/webp" class="foto-input" onchange="anexarFoto(this)" onfocus="salvarAntesDeFoto()" onclick="salvarAntesDeFoto()" multiple>${avisoMobile}</label><div class="fotos-preview"></div></div>`
+}
 function montarTela(){document.getElementById("app").innerHTML=`<div class="section"><h3 style="color:#f00;text-align:center;margin:0 0 15px 0;padding:10px;background:#f5f5f5;border:2px solid #f00;border-radius:8px">🏪 ${lojas[lojaAtual]}</h3><label>Data:<input type="text" id="data" placeholder="dd/mm/aaaa" oninput="formatarData(this)"></label><label>Objetivo da Visita:<select id="objetivo"><option value="">Selecione...</option><option>Acompanhamento de rotina</option><option>Auditoria de processos</option><option>Treinamento e capacitação</option></select></label><label>Nome do Encarregado:<input type="text" id="encarregado"></label><label>Nome do Gerente Responsável:<input type="text" id="gerente"></label><h3>📂 Histórico de Visitas</h3><button class="collapsible">Mostrar/Esconder Histórico</button><div class="hist-container" style="display:none"><table class="hist-table"><thead><tr><th>Data</th><th>Pontos</th><th>Status</th><th>Ações</th></tr></thead><tbody id="historicoBody"></tbody></table></div></div>${secao(1,"Recebimento de Mercadorias",simNao("Existem Notas Fiscais aguardando recebimento no sistema?","nf","nf_cx")+simNao("Existem volumes com caixas fechadas?","cx","nf_cx")+simNao("Houve erros de recebimento que precisaram de cancelamento?","er"),"1")}${secao(2,"Etiquetagem de Produtos",simNao("Existem mercadorias a serem etiquetadas?","et","etiquetar")+simNao("Etiquetas estão sendo impressas corretamente?","imp")+simNao("Impressora Argox apresenta problemas?","arg","impressora"),"2")}${secao(3,"Organização e Limpeza do Estoque",simNao("Estoque limpo e higienizado?","limpo")+simNao("Área do computador organizada?","pc")+simNao("Checklist online sendo usado corretamente?","check"),"3")}${secao(4,"Organização do Estoque – Corredores",simNao("Corredores alinhados e puxados?","c1")+simNao("Corredores numerados conforme padrão?","c2")+simNao("Produtos organizados por setor?","c3")+simNao("Acesso livre e sem obstruções?","c4"),"4")}${secao(5,"Organização de Confecções e Acessórios",simNao("Setorização correta (Marcas e Modelos)?","f1")+simNao("Armazenamento adequado?","f2"),"5")}${secao(6,"Gatos e Defeitos",simNao("Produtos de gatos identificados e separados?","g1")+simNao("Defeitos transferidos para loja 99?","g2"),"6")}${secao(7,"Transferências e Remanejamentos",simNao("Transferências realizadas corretamente entre lojas?","t1")+simNao("Remanejamentos via sistema realizados corretamente?","t2","remanejamento")+simNao("Lotes em aberto entre lojas estão corretos?","t3","lotes")+simNao("Separação de pés de vitrine correta?","t4"),"7")}<div class="summary" id="summaryBox"><div style="text-align:center;font-size:1.8em;font-weight:700;margin-bottom:15px">📊 RESULTADO DA AVALIAÇÃO</div><div style="display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:20px"><div style="text-align:center"><div style="font-size:3em;font-weight:700;color:#f00" id="totalDisplay">0</div><div style="font-size:1.2em;color:#666">de 21 pontos</div></div><div style="text-align:center;flex:1;min-width:200px"><div style="font-size:2.5em;margin-bottom:10px" id="statusEmoji">⚪</div><div style="font-size:1.5em;font-weight:700;padding:10px 20px;border-radius:10px" id="statusText">Aguardando avaliação</div></div></div><div style="margin-top:20px;padding:15px;background:#f9f9f9;border-radius:8px;font-size:0.9em"><strong>Legenda:</strong> 🟢 18–21 Excelente | 🔵 14–17 Bom | 🟡 10–13 Regular | 🔴 0–9 Insatisfatório</div></div><button class="collapsible">📊 Resumo Mensal</button><div id="resumoMensal" style="display:none;margin-top:10px"></div><button class="collapsible">📊 Resumo Geral</button><div id="resumoGeral" style="display:none;margin-top:10px"></div><div class="section"><h3>Conclusão da Visita</h3><textarea id="conclusao"></textarea><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px"><div><strong>Assinatura Coordenador:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Gerente:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div><div><strong>Assinatura Encarregado:</strong><div style="border-bottom:2px solid #000;margin-top:40px"></div></div></div></div>`;carregar();calcular();calcularPontuacaoSecao();atualizarHistorico();document.querySelectorAll(".collapsible").forEach(coll=>{coll.onclick=function(){this.classList.toggle("active");const content=this.nextElementSibling;content.style.display=(content.style.display==="block")?"none":"block";if(this.textContent.includes("Resumo Mensal"))resumoMensal();if(this.textContent.includes("Resumo Geral"))resumoGeral()}})}
 function formatarData(el){let v=el.value.replace(/\D/g,'');if(v.length>=3)v=v.slice(0,2)+'/'+v.slice(2);if(v.length>=6)v=v.slice(0,5)+'/'+v.slice(5,9);el.value=v}
 function comprimirImagem(file, callback) {
@@ -2965,6 +2969,80 @@ function comprimirImagem(file, callback) {
 // 🆕 Versão moderna da compressão que retorna Promise (para usar com async/await)
 function comprimirImagemModerna(file, qualidade = 0.7) {
     return new Promise((resolve, reject) => {
+        const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+        
+        // 🔥 MOBILE: Se arquivo < 1MB, NÃO COMPRIME (evita travamento)
+        if (isMobile && file.size < 1024 * 1024) {
+            console.log('📱 Mobile: Arquivo pequeno, usando original sem comprimir');
+            resolve(file);
+            return;
+        }
+        
+        // 🔥 TIMEOUT AGRESSIVO: 8 segundos no mobile, 15 no desktop
+        const timeoutMs = isMobile ? 8000 : 15000;
+        const timeout = setTimeout(() => {
+            console.warn(`⏱️ Timeout após ${timeoutMs/1000}s — usando original`);
+            resolve(file); // USA ORIGINAL, não rejeita
+        }, timeoutMs);
+        
+        const maxSize = isMobile ? 600 : 800;
+        const qualidadeFinal = isMobile ? 0.5 : qualidade;
+        
+        console.log(`📱 Comprimindo... Mobile: ${isMobile}, Timeout: ${timeoutMs/1000}s`);
+        
+        // 🔥 TENTA MÉTODO MODERNO PRIMEIRO (createImageBitmap)
+        if (typeof createImageBitmap === 'function' && isMobile) {
+            createImageBitmap(file).then(bitmap => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    let width = bitmap.width;
+                    let height = bitmap.height;
+                    
+                    // Redimensiona
+                    if (width > height && width > maxSize) {
+                        height = height * maxSize / width;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = width * maxSize / height;
+                        height = maxSize;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d', { alpha: false });
+                    ctx.imageSmoothingEnabled = false; // Mais rápido
+                    ctx.drawImage(bitmap, 0, 0, width, height);
+                    
+                    canvas.toBlob((blob) => {
+                        clearTimeout(timeout);
+                        bitmap.close(); // Libera memória
+                        
+                        if (blob) {
+                            console.log(`✅ Comprimida (método moderno): ${(blob.size/1024).toFixed(0)}KB`);
+                            resolve(blob);
+                        } else {
+                            console.warn('⚠️ toBlob falhou — usando original');
+                            resolve(file);
+                        }
+                    }, 'image/jpeg', qualidadeFinal);
+                    
+                } catch(err) {
+                    clearTimeout(timeout);
+                    bitmap.close();
+                    console.error('❌ Erro (método moderno):', err);
+                    resolve(file);
+                }
+            }).catch(err => {
+                clearTimeout(timeout);
+                console.error('❌ createImageBitmap falhou:', err);
+                resolve(file); // Fallback para original
+            });
+            
+            return; // Sai aqui se usar método moderno
+        }
+        
+        // 🔥 MÉTODO LEGADO (FileReader + Image)
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
@@ -2974,44 +3052,56 @@ function comprimirImagemModerna(file, qualidade = 0.7) {
                     let width = img.width;
                     let height = img.height;
                     
-                    // 🔥 COMPRESSÃO INTELIGENTE: 800px para melhor qualidade visual
-                    const maxSize = 800;
-                    if (width > height) {
-                        if (width > maxSize) {
-                            height *= maxSize / width;
-                            width = maxSize;
-                        }
-                    } else {
-                        if (height > maxSize) {
-                            width *= maxSize / height;
-                            height = maxSize;
-                        }
+                    // Redimensiona
+                    if (width > height && width > maxSize) {
+                        height = height * maxSize / width;
+                        width = maxSize;
+                    } else if (height > maxSize) {
+                        width = width * maxSize / height;
+                        height = maxSize;
                     }
                     
                     canvas.width = width;
                     canvas.height = height;
                     
-                    const ctx = canvas.getContext('2d');
+                    const ctx = canvas.getContext('2d', { alpha: false });
+                    if (isMobile) ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(img, 0, 0, width, height);
                     
-                    // 🚀 USA QUALIDADE PASSADA COMO PARÂMETRO (0.6 para câmera, 0.7 para arquivo)
                     canvas.toBlob((blob) => {
+                        clearTimeout(timeout);
+                        
                         if (blob) {
-                            console.log('✅ Imagem comprimida:', (blob.size/1024).toFixed(0)+'KB', 'Qualidade:', qualidade);
+                            console.log(`✅ Comprimida (legado): ${(blob.size/1024).toFixed(0)}KB`);
                             resolve(blob);
                         } else {
-                            reject(new Error('Falha ao comprimir imagem'));
+                            console.warn('⚠️ toBlob falhou — usando original');
+                            resolve(file);
                         }
-                    }, 'image/jpeg', qualidade);
+                    }, 'image/jpeg', qualidadeFinal);
                     
-                } catch(error) {
-                    reject(error);
+                } catch(err) {
+                    clearTimeout(timeout);
+                    console.error('❌ Erro (legado):', err);
+                    resolve(file);
                 }
             };
-            img.onerror = () => reject(new Error('Erro ao carregar imagem'));
+            
+            img.onerror = () => {
+                clearTimeout(timeout);
+                console.error('❌ Erro ao carregar imagem — usando original');
+                resolve(file);
+            };
+            
             img.src = e.target.result;
         };
-        reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+        
+        reader.onerror = () => {
+            clearTimeout(timeout);
+            console.error('❌ Erro ao ler arquivo — usando original');
+            resolve(file);
+        };
+        
         reader.readAsDataURL(file);
     });
 }
@@ -3070,37 +3160,41 @@ async function anexarFoto(input){
         const secao = input.closest('.section');
         const preview = secao ? secao.querySelector('.fotos-preview') : null;
         
-        // Mostra indicador de espera no preview
         const espera = document.createElement('div');
         espera.className = 'foto-item';
         espera.id = 'espera-conexao-drive';
         espera.innerHTML = '<div style="padding:20px;text-align:center;color:#4285f4;font-weight:600">⏳ Conectando ao Drive...</div>';
         if (preview) preview.appendChild(espera);
         
-        // Aguarda até 5 segundos para o Drive conectar
         let tentativas = 0;
         while (!CONFIG_DRIVE.conectado && tentativas < 50) {
-            await new Promise(r => setTimeout(r, 100)); // 100ms × 50 = 5s máximo
+            await new Promise(r => setTimeout(r, 100));
             tentativas++;
         }
         
-        // Remove indicador
         if (espera.parentNode) espera.remove();
         
-        // Se conectou dentro do tempo, segue para o Drive
         if (CONFIG_DRIVE.conectado) {
             console.log('✅ Drive conectou em tempo — enviando foto para Drive');
             anexarFotosGoogleDrive(input);
             return;
         }
         
-        // Se não conectou em 5s, cai para IndexedDB com aviso
         console.warn('⚠️ Drive não conectou em tempo — salvando localmente');
         mostrarToast('⚠️ Drive não conectou em tempo. Foto salva localmente.', 'aviso');
     }
     
-    // ✅ Drive conectado normalmente — vai direto
-    if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+    // 🔥 NOVA LÓGICA: Mobile + Drive = MODO HÍBRIDO (local primeiro, Drive depois)
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile && CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+        console.log('📱 MODO HÍBRIDO: Mobile + Drive → Salva local primeiro, envia Drive em background');
+        mostrarToast('📱 Modo Híbrido: Salvando localmente...', 'info');
+        anexarFotosModoHibrido(input);
+        return;
+    }
+    
+    // ✅ Drive conectado normalmente (desktop) — vai direto
+    if (CONFIG_DRIVE && CONFIG_DRIVE.conectado && !isMobile) {
         anexarFotosGoogleDrive(input);
         return;
     }
@@ -3138,7 +3232,7 @@ async function anexarFoto(input){
                 const div=document.createElement('div');
                 div.className='foto-item';
                 div.setAttribute('data-foto-id',fotoId);
-                div.setAttribute('data-blob-url', url); // Guarda URL
+                div.setAttribute('data-blob-url', url);
                 
                 const btnRemover=document.createElement('button');
                 btnRemover.className='remover-foto';
@@ -3180,13 +3274,498 @@ async function anexarFoto(input){
         reader.readAsArrayBuffer(file);
     });
     
-    // 🆕 Limpa o input completamente para permitir novas seleções
+// 🔥 MODO HÍBRIDO: Salva local primeiro (rápido), envia Drive depois (background)
+async function anexarFotosModoHibrido(input) {
+    console.log('📱 MODO HÍBRIDO iniciado');
+    
+    const secao = input.closest('.section');
+    const secaoId = secao.getAttribute('data-secao');
+    const preview = secao.querySelector('.fotos-preview');
+    
+    if (!input.files || input.files.length === 0) return;
+    
+    const arquivos = Array.from(input.files);
+    console.log(`📱 ${arquivos.length} foto(s) para processar`);
+    
+    for (let i = 0; i < arquivos.length; i++) {
+        const file = arquivos[i];
+        
+        if (!file.type.startsWith('image/')) {
+            mostrarToast('⚠️ Apenas imagens são permitidas', 'erro');
+            continue;
+        }
+        
+        try {
+            console.log(`📱 Processando foto ${i+1}/${arquivos.length}`);
+            
+            // 1️⃣ CRIA PREVIEW IMEDIATAMENTE (sem compressão)
+            const url = URL.createObjectURL(file);
+            const fotoId = 'foto_'+secaoId+'_'+Date.now()+'_'+i+'_'+Math.random().toString(36).substr(2,9);
+            
+            const div = document.createElement('div');
+            div.className = 'foto-item';
+            div.setAttribute('data-foto-id', fotoId);
+            div.setAttribute('data-secao-id', secaoId);
+            div.style.cssText = 'position:relative;border:2px solid #4CAF50;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Foto';
+            img.style.cssText = 'display:block;width:100%;height:120px;object-fit:cover;border-radius:4px;cursor:pointer';
+            img.onclick = () => {
+                const modal = document.getElementById('modalFoto');
+                const modalImg = document.getElementById('imagemModal');
+                if (modal && modalImg) {
+                    modalImg.src = url;
+                    modal.style.display = 'flex';
+                }
+            };
+            
+            const btnRemover = document.createElement('button');
+            btnRemover.className = 'remover-foto';
+            btnRemover.type = 'button';
+            btnRemover.innerHTML = '×';
+            btnRemover.onclick = async (e) => {
+                e.stopPropagation();
+                if (confirm('Remover esta foto?')) {
+                    URL.revokeObjectURL(url);
+                    div.remove();
+                    delete window.fotosTemporarias[fotoId];
+                    
+                    const driveId = div.getAttribute('data-drive-id');
+                    if (driveId) {
+                        try {
+                            await removerFotoDrive(driveId);
+                        } catch(err) {
+                            console.error('Erro ao remover do Drive:', err);
+                        }
+                    }
+                }
+            };
+            
+            // Badge de status
+            const badge = document.createElement('div');
+            badge.className = 'badge-status';
+            badge.style.cssText = 'position:absolute;top:5px;left:5px;background:rgba(76,175,80,0.95);color:#fff;padding:4px 8px;border-radius:4px;font-size:0.7em;font-weight:bold;z-index:5';
+            badge.textContent = '💾 Salvo';
+            
+            div.appendChild(img);
+            div.appendChild(badge);
+            div.appendChild(btnRemover);
+            preview.appendChild(div);
+            
+            // 2️⃣ GUARDA BLOB LOCALMENTE
+            if (!window.fotosTemporarias) window.fotosTemporarias = {};
+            window.fotosTemporarias[fotoId] = file; // Usa arquivo original, sem comprimir
+            
+            console.log(`✅ Foto ${i+1} salva localmente:`, fotoId);
+            mostrarToast(`✅ Foto ${i+1}/${arquivos.length} salva!`, 'sucesso');
+            
+            // 3️⃣ ENVIA PRO DRIVE EM BACKGROUND (sem bloquear)
+            setTimeout(() => {
+                enviarFotoParaDriveBackground(file, fotoId, secaoId, div, badge);
+            }, 500); // Pequeno delay para não sobrecarregar
+            
+        } catch (error) {
+            console.error(`❌ Erro ao processar foto ${i+1}:`, error);
+            mostrarToast(`❌ Erro na foto ${i+1}`, 'erro');
+        }
+    }
+    
+    // Limpa input
+    setTimeout(() => {
+        input.value = '';
+    }, 100);
+}
+
+// Envia foto pro Drive em background sem bloquear a UI
+async function enviarFotoParaDriveBackground(file, fotoId, secaoId, div, badge) {
+    try {
+        console.log(`☁️ Iniciando upload background: ${fotoId}`);
+        badge.textContent = '📤 Enviando...';
+        badge.style.background = 'rgba(255,165,0,0.95)';
+        
+        // Obtém pasta do Drive
+        const folderId = await obterOuCriarPasta();
+        
+        // Comprime a foto (agora sim, em background)
+        let blob;
+        try {
+            blob = await comprimirImagemModerna(file, 0.6);
+        } catch(err) {
+            console.warn('Compressão falhou, usando original:', err);
+            blob = file;
+        }
+        
+        // Upload
+        const visitaId = window.visitaIdTemporario || 'sem_visita';
+        const nomeArquivo = `${visitaId}_${secaoId}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        
+        const resultado = await uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId);
+        
+        // Atualiza div com dados do Drive
+        div.setAttribute('data-drive-id', resultado.id);
+        div.setAttribute('data-drive-url', resultado.url);
+        div.removeAttribute('data-foto-id'); // Remove ID local
+        
+        badge.textContent = '☁️ Drive';
+        badge.style.background = 'rgba(33,150,243,0.95)';
+        
+        console.log(`✅ Upload concluído: ${fotoId} → ${resultado.id}`);
+        mostrarToast('☁️ Foto enviada ao Drive!', 'sucesso');
+        
+        // 🧹 LIMPEZA AUTOMÁTICA: Remove do IndexedDB já que está no Drive
+        // visitaId já foi declarado acima (linha 3401)
+        limparFotoLocalSeNoDrive(visitaId, secaoId, resultado.id);
+        
+    } catch (error) {
+        console.error(`❌ Erro ao enviar para Drive:`, error);
+        badge.textContent = '💾 Local';
+        badge.style.background = 'rgba(255,152,0,0.95)';
+        mostrarToast('⚠️ Foto salva apenas localmente', 'aviso');
+// 🧹 LIMPEZA: Apaga foto do IndexedDB quando já está no Drive
+async function limparFotoLocalSeNoDrive(visitaId, secaoId, driveId) {
+    if (!driveId) return; // Só limpa se realmente foi pro Drive
+    
+    try {
+        // Busca todas as fotos dessa visita/seção no IndexedDB
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readwrite');
+        const store = tx.objectStore('fotos');
+        const index = store.index('visitaId');
+        const todasFotos = await index.getAll(visitaId);
+        
+        let limpou = 0;
+        for (const foto of todasFotos) {
+            if (foto.secaoId === secaoId) {
+                // Apaga do IndexedDB
+                await store.delete(foto.id);
+                limpou++;
+                console.log(`🧹 Foto local apagada (já está no Drive): ${foto.id}`);
+            }
+        }
+        
+        if (limpou > 0) {
+            console.log(`✅ ${limpou} foto(s) local(is) limpas`);
+        }
+        
+    } catch (err) {
+        console.error('❌ Erro ao limpar fotos locais:', err);
+    }
+}
+
+// 📊 VERIFICAR STATUS: Quantas fotos Drive vs Local em uma visita
+async function verificarStatusFotosVisita(visitaId) {
+    const status = {
+        noDrive: 0,
+        local: 0,
+        totalBytes: 0,
+        detalhes: []
+    };
+    
+    try {
+        // Busca no IndexedDB
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readonly');
+        const store = tx.objectStore('fotos');
+        const index = store.index('visitaId');
+        const fotosLocais = await index.getAll(visitaId);
+        
+        for (const foto of fotosLocais) {
+            status.local++;
+            status.totalBytes += foto.blob.size;
+            status.detalhes.push({
+                secao: foto.secaoId,
+                tamanho: (foto.blob.size / 1024).toFixed(0) + 'KB',
+                tipo: 'local'
+            });
+        }
+        
+    } catch (err) {
+        console.error('Erro ao verificar fotos locais:', err);
+    }
+    
+    return status;
+}
+
+// 📊 ESPAÇO USADO: Total de espaço no IndexedDB
+async function calcularEspacoIndexedDB() {
+    try {
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readonly');
+        const store = tx.objectStore('fotos');
+        const todasFotos = await store.getAll();
+        
+        let totalBytes = 0;
+        let totalFotos = 0;
+        
+        for (const foto of todasFotos) {
+            totalBytes += foto.blob?.size || 0;
+            totalFotos++;
+        }
+        
+        const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+        
+        console.log(`📊 IndexedDB: ${totalFotos} fotos, ${totalMB} MB`);
+        
+        return {
+            fotos: totalFotos,
+            bytes: totalBytes,
+            mb: totalMB
+        };
+        
+    } catch (err) {
+        console.error('Erro ao calcular espaço:', err);
+        return { fotos: 0, bytes: 0, mb: '0.00' };
+    }
+}
+
+// 🔄 RE-ENVIAR: Força re-envio de fotos locais para o Drive
+async function reenviarFotosLocaisParaDrive(visitaId) {
+    if (!CONFIG_DRIVE || !CONFIG_DRIVE.conectado) {
+        alert('❌ Google Drive não está conectado!');
+        return;
+    }
+    
+    try {
+        mostrarToast('🔍 Buscando fotos locais...', 'info');
+        
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readonly');
+        const store = tx.objectStore('fotos');
+        const index = store.index('visitaId');
+        const fotosLocais = await index.getAll(visitaId);
+        
+        if (fotosLocais.length === 0) {
+            mostrarToast('✅ Nenhuma foto local para enviar!', 'sucesso');
+            return;
+        }
+        
+        const confirmar = confirm(
+            `📤 RE-ENVIAR FOTOS\n\n` +
+            `Encontradas ${fotosLocais.length} foto(s) salvas localmente.\n\n` +
+            `Deseja tentar enviar para o Google Drive?`
+        );
+        
+        if (!confirmar) return;
+        
+        mostrarToast(`📤 Enviando ${fotosLocais.length} foto(s)...`, 'info');
+        
+        const folderId = await obterOuCriarPasta();
+        let enviadas = 0;
+        let falharam = 0;
+        
+        for (const foto of fotosLocais) {
+            try {
+                const nomeArquivo = `reenvio_${visitaId}_${foto.secaoId}_${Date.now()}.jpg`;
+                const resultado = await uploadFotoParaDriveComPasta(foto.blob, nomeArquivo, folderId);
+                
+                console.log(`✅ Foto re-enviada: ${foto.id} → ${resultado.id}`);
+                enviadas++;
+                
+                // Apaga do IndexedDB após sucesso
+                const txDel = db.transaction('fotos', 'readwrite');
+                await txDel.objectStore('fotos').delete(foto.id);
+                
+            } catch (err) {
+                console.error(`❌ Falhou ao re-enviar foto ${foto.id}:`, err);
+                falharam++;
+            }
+        }
+        
+        mostrarToast(
+            `✅ ${enviadas} enviadas, ❌ ${falharam} falharam`,
+            enviadas > 0 ? 'sucesso' : 'erro'
+        );
+        
+    } catch (err) {
+        console.error('Erro ao re-enviar fotos:', err);
+        mostrarToast('❌ Erro ao re-enviar fotos', 'erro');
+    }
+}
+
+// 🧹 LIMPAR TUDO: Remove TODAS as fotos locais antigas (>7 dias)
+async function limparFotosAntigasIndexedDB(diasAntigos = 7) {
+    try {
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readwrite');
+        const store = tx.objectStore('fotos');
+        const todasFotos = await store.getAll();
+        
+        const agora = Date.now();
+        const limiteMs = diasAntigos * 24 * 60 * 60 * 1000;
+        
+        let removidas = 0;
+        let bytesLiberados = 0;
+        
+        for (const foto of todasFotos) {
+            // Extrai timestamp do visitaId (formato: visita_LOJA_TIMESTAMP)
+            const match = foto.visitaId?.match(/_(\d+)_/);
+            if (match) {
+                const timestamp = parseInt(match[1]);
+                const idade = agora - timestamp;
+                
+                if (idade > limiteMs) {
+                    bytesLiberados += foto.blob?.size || 0;
+                    await store.delete(foto.id);
+                    removidas++;
+                }
+            }
+        }
+        
+        const mbLiberados = (bytesLiberados / (1024 * 1024)).toFixed(2);
+        
+        console.log(`🧹 ${removidas} fotos antigas removidas, ${mbLiberados} MB liberados`);
+        
+        return { removidas, mb: mbLiberados };
+        
+    } catch (err) {
+        console.error('Erro ao limpar fotos antigas:', err);
+        return { removidas: 0, mb: '0.00' };
+    }
+}
+    }
+}
     setTimeout(() => {
         input.value = '';
     }, 100);
 }
 function removerFoto(fotoId,event){if(event){event.stopPropagation();event.preventDefault()}if(!confirm('Deseja remover esta foto?'))return;const fotoItem=document.querySelector(`[data-foto-id="${fotoId}"]`);if(!fotoItem){alert('❌ Erro ao localizar a foto.');return}fotoItem.remove();setTimeout(()=>{salvar(false)},100)}
 function ampliarFoto(fotoId){const f=document.querySelector(`[data-foto-id="${fotoId}"]`);if(!f)return;const img=f.querySelector('img'),modal=document.getElementById('modalFoto'),modalImg=document.getElementById('imagemModal');modalImg.src=img.src;modal.style.display='flex'}
+
+// 📊 MODAL DE STATUS DE FOTOS
+async function abrirStatusFotos() {
+    const espacoInfo = await calcularEspacoIndexedDB();
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000';
+    
+    modal.innerHTML = `
+        <div style="background:#fff;padding:30px;border-radius:12px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto">
+            <h2 style="margin:0 0 20px 0;color:#f00">📊 Status de Fotos</h2>
+            
+            <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin-bottom:20px">
+                <div style="font-size:1.1em;margin-bottom:10px"><strong>💾 IndexedDB (Local)</strong></div>
+                <div style="font-size:2em;font-weight:700;color:#f00">${espacoInfo.fotos} fotos</div>
+                <div style="color:#666">${espacoInfo.mb} MB usados</div>
+            </div>
+            
+            <div style="background:#fff8e1;padding:15px;border-radius:8px;margin-bottom:20px;border:1px solid #ffa000">
+                <div style="font-size:0.9em;color:#f57c00">
+                    <strong>ℹ️ Modo Híbrido (Mobile)</strong><br><br>
+                    Fotos da câmera são salvas localmente primeiro e depois enviadas ao Drive em background.<br><br>
+                    <strong>Badge verde "💾 Salvo"</strong> = Local<br>
+                    <strong>Badge azul "☁️ Drive"</strong> = No Google Drive<br>
+                    <strong>Badge laranja "💾 Local"</strong> = Falhou ao enviar
+                </div>
+            </div>
+            
+            <div style="display:flex;flex-direction:column;gap:10px">
+                <button onclick="limparFotosAntigasAuto()" style="padding:12px;background:#ff9800;color:#fff;border:none;border-radius:6px;font-size:1em;cursor:pointer">
+                    🧹 Limpar Fotos Antigas (>7 dias)
+                </button>
+                
+                <button onclick="mostrarTodasFotosLocais()" style="padding:12px;background:#2196f3;color:#fff;border:none;border-radius:6px;font-size:1em;cursor:pointer">
+                    📋 Ver Todas as Fotos Locais
+                </button>
+                
+                <button onclick="fecharModal()" style="padding:12px;background:#666;color:#fff;border:none;border-radius:6px;font-size:1em;cursor:pointer">
+                    ✕ Fechar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+    
+    document.body.appendChild(modal);
+    
+    // Substitui fecharModal temporariamente
+    window.fecharModal = () => modal.remove();
+}
+
+async function limparFotosAntigasAuto() {
+    const confirmar = confirm(
+        '🧹 LIMPAR FOTOS ANTIGAS\n\n' +
+        'Isso vai remover fotos locais com mais de 7 dias.\n\n' +
+        '⚠️ Apenas fotos que JÁ FORAM ENVIADAS ao Drive ou que falharam repetidamente.\n\n' +
+        'Continuar?'
+    );
+    
+    if (!confirmar) return;
+    
+    const resultado = await limparFotosAntigasIndexedDB(7);
+    
+    alert(
+        `✅ LIMPEZA CONCLUÍDA\n\n` +
+        `${resultado.removidas} foto(s) removida(s)\n` +
+        `${resultado.mb} MB liberados`
+    );
+    
+    // Atualiza o modal
+    document.querySelector('[onclick="abrirStatusFotos()"]')?.click();
+}
+
+async function mostrarTodasFotosLocais() {
+    try {
+        const db = await abrirDB();
+        const tx = db.transaction('fotos', 'readonly');
+        const store = tx.objectStore('fotos');
+        const todasFotos = await store.getAll();
+        
+        if (todasFotos.length === 0) {
+            alert('✅ Nenhuma foto local armazenada!');
+            return;
+        }
+        
+        // Agrupa por visita
+        const porVisita = {};
+        for (const foto of todasFotos) {
+            if (!porVisita[foto.visitaId]) {
+                porVisita[foto.visitaId] = [];
+            }
+            porVisita[foto.visitaId].push(foto);
+        }
+        
+        let html = '<div style="max-height:400px;overflow-y:auto;font-family:monospace;font-size:0.85em">';
+        
+        for (const visitaId in porVisita) {
+            const fotos = porVisita[visitaId];
+            const totalKB = fotos.reduce((sum, f) => sum + (f.blob.size / 1024), 0);
+            
+            html += `<div style="margin-bottom:15px;padding:10px;background:#f5f5f5;border-radius:6px">`;
+            html += `<strong>${visitaId}</strong><br>`;
+            html += `${fotos.length} foto(s) - ${totalKB.toFixed(0)} KB<br>`;
+            html += `<button onclick="reenviarFotosLocaisParaDrive('${visitaId}')" style="margin-top:5px;padding:5px 10px;font-size:0.9em">📤 Re-enviar</button>`;
+            html += `</div>`;
+        }
+        
+        html += '</div>';
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10001';
+        
+        modal.innerHTML = `
+            <div style="background:#fff;padding:30px;border-radius:12px;max-width:600px;width:90%">
+                <h3 style="margin:0 0 20px 0">📋 Fotos Locais (${todasFotos.length})</h3>
+                ${html}
+                <button onclick="this.closest('div').parentElement.remove()" style="margin-top:15px;padding:10px;width:100%;background:#666;color:#fff;border:none;border-radius:6px">Fechar</button>
+            </div>
+        `;
+        
+        modal.onclick = (e) => {
+            if (e.target === modal) modal.remove();
+        };
+        
+        document.body.appendChild(modal);
+        
+    } catch (err) {
+        console.error('Erro ao mostrar fotos:', err);
+        alert('❌ Erro ao carregar fotos locais');
+    }
+}
 function fecharModal(){document.getElementById('modalFoto').style.display='none'}
 function abrirBonificacao(){const hoje=new Date();gerarSeletorMesAno(hoje.getMonth(),hoje.getFullYear());document.getElementById('modalBonificacao').style.display='flex'}
 function fecharBonificacao(){document.getElementById('modalBonificacao').style.display='none'}
@@ -6050,6 +6629,15 @@ setTimeout(() => {
                 }
             };
             abaInterno.appendChild(btnValidar);
+            
+            // 5. Botão de Status de Fotos
+            const btnFotos = document.createElement('button');
+            btnFotos.className = 'action';
+            btnFotos.textContent = '📊 Status de Fotos';
+            btnFotos.style.background = '#9c27b0';
+            btnFotos.style.color = '#fff';
+            btnFotos.onclick = abrirStatusFotos;
+            abaInterno.appendChild(btnFotos);
         }
         
         // 5. Adicionar validação em tempo real (destaque visual)
@@ -7988,6 +8576,40 @@ async function anexarFotosGoogleDrive(input) {
     let enviadas = 0;
     const total = arquivos.length;
     
+    // 🔥 WATCHDOG: Detecta se travou (sem progresso em 12 segundos)
+    let ultimoProgresso = Date.now();
+    const watchdog = setInterval(() => {
+        const tempoSemProgresso = (Date.now() - ultimoProgresso) / 1000;
+        
+        if (tempoSemProgresso > 12 && enviadas < total) {
+            console.error(`🚨 TRAVADO! ${tempoSemProgresso.toFixed(0)}s sem progresso`);
+            
+            const cancelar = confirm(
+                '⚠️ PROCESSAMENTO TRAVADO\n\n' +
+                `Sem progresso há ${tempoSemProgresso.toFixed(0)} segundos.\n` +
+                `${enviadas} de ${total} fotos processadas.\n\n` +
+                'Isso pode acontecer com fotos muito grandes da câmera.\n\n' +
+                '💡 CLIQUE OK para:\n' +
+                '• Cancelar este processamento\n' +
+                '• Tentar novamente com 1 foto por vez\n\n' +
+                'CLIQUE CANCELAR para continuar aguardando.'
+            );
+            
+            if (cancelar) {
+                clearInterval(watchdog);
+                if (progressDiv) progressDiv.style.display = 'none';
+                mostrarToast('⚠️ Processamento cancelado. Tente com 1 foto por vez.', 'aviso');
+                
+                // Limpa input para permitir nova tentativa
+                input.value = '';
+                return;
+            } else {
+                // Reseta o timer se usuário quer continuar esperando
+                ultimoProgresso = Date.now();
+            }
+        }
+    }, 3000); // Verifica a cada 3 segundos
+    
     // 📸 Inicia processamento rápido
     mostrarToast('📸 Processando ' + total + ' foto(s)...', 'info');
     
@@ -8017,63 +8639,123 @@ async function anexarFotosGoogleDrive(input) {
             
             console.log('📸 Foto ' + (index+1) + ':', file.name, 'Tamanho:', (file.size/1024).toFixed(0)+'KB');
             
+            // 🔥 INDICADOR VISUAL CLARO PARA MOBILE
+            const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+            if (isMobile) {
+                const processingDiv = document.createElement('div');
+                processingDiv.className = 'foto-item';
+                processingDiv.style.cssText = 'position:relative;border:3px dashed #4285f4;border-radius:8px;padding:20px;background:#f0f8ff;width:150px;min-height:130px;display:inline-block;margin:5px;text-align:center';
+                processingDiv.innerHTML = `
+                    <div style="font-size:2em;margin-bottom:10px">⚡</div>
+                    <div style="font-size:0.9em;font-weight:600;color:#4285f4">Processando...</div>
+                    <div style="font-size:0.8em;color:#666;margin-top:5px">Foto ${index+1}/${total}</div>
+                `;
+                preview.appendChild(processingDiv);
+                
+                // Remove após processamento
+                setTimeout(() => {
+                    if (processingDiv.parentNode) processingDiv.remove();
+                }, 20000); // Remove após 20s no máximo
+            }
+            
             // 🔥 SEMPRE COMPRIME (fotos de câmera são SEMPRE grandes, 3-8 MB)
             console.log('⚡ Comprimindo foto ' + (index+1) + '...');
             if (statusText) statusText.textContent = '⚡ Processando foto ' + (index+1) + '/' + total + '...';
             
-            // 🚀 COMPRESSÃO SUPER RÁPIDA para fotos da câmera (qualidade 0.6)
-            const blob = await comprimirImagemModerna(file, 0.6);
-            
-            console.log('✅ Foto ' + (index+1) + ' comprimida:', (blob.size/1024).toFixed(0)+'KB');
+            let blob;
+            try {
+                // 🚀 COMPRESSÃO SUPER RÁPIDA para fotos da câmera (qualidade 0.6)
+                blob = await comprimirImagemModerna(file, 0.6);
+                console.log('✅ Foto ' + (index+1) + ' comprimida:', (blob.size/1024).toFixed(0)+'KB');
+            } catch (compressError) {
+                console.warn('⚠️ Compressão falhou, usando foto original:', compressError);
+                blob = file; // Fallback: usa original
+            }
             
             // 🆕 CRIA PREVIEW IMEDIATAMENTE (ANTES DO UPLOAD!)
-            const urlLocal = URL.createObjectURL(blob);
-            console.log('🖼️ URL da imagem criada:', urlLocal);
+            let urlLocal;
+            try {
+                urlLocal = URL.createObjectURL(blob);
+                console.log('🖼️ URL da imagem criada:', urlLocal);
+            } catch (urlError) {
+                console.error('❌ Erro ao criar ObjectURL:', urlError);
+                // Mostra placeholder informativo
+                const placeholderDiv = document.createElement('div');
+                placeholderDiv.className = 'foto-item';
+                placeholderDiv.style.cssText = 'position:relative;border:2px solid #f90;border-radius:6px;padding:10px;background:#fff8e1;width:150px;min-height:130px;display:inline-block;margin:5px;text-align:center';
+                placeholderDiv.innerHTML = `
+                    <div style="font-size:1.5em;margin:10px 0">📤</div>
+                    <div style="font-size:0.8em;color:#f57c00;font-weight:600">Enviando...</div>
+                    <div style="font-size:0.7em;color:#666;margin-top:5px">Foto ${index+1}</div>
+                `;
+                preview.appendChild(placeholderDiv);
+                
+                // Ainda tenta fazer upload mesmo sem preview visual
+                // (continua o código normalmente)
+            }
             
             const div = document.createElement('div');
             div.className = 'foto-item';
             div.setAttribute('data-secao-id', secaoId);
-            div.setAttribute('data-upload-status', 'uploading'); // Marca como enviando
-            // 🆕 Estilos inline para garantir visualização em mobile
+            div.setAttribute('data-upload-status', 'uploading');
             div.style.cssText = 'position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
             
-            const img = document.createElement('img');
-            img.src = urlLocal;
-            img.alt = 'Foto anexada';
-            img.style.opacity = '0.6'; // Fica meio transparente enquanto envia
-            img.style.display = 'block'; // 🆕 Garante que a imagem seja exibida
-            img.style.width = '100%';
-            img.style.height = '120px';
-            img.style.objectFit = 'cover';
-            img.style.borderRadius = '4px';
-            img.style.cursor = 'pointer';
+            let img = null; // Declarado aqui para ser acessível no .then()
             
-            // Adiciona evento de click para ampliar
-            img.onclick = () => {
-                const modal = document.getElementById('modalFoto');
-                const modalImg = document.getElementById('imagemModal');
-                if (modal && modalImg) {
-                    modalImg.src = urlLocal;
-                    modal.style.display = 'flex';
-                } else {
-                    // Fallback: abre em nova aba
-                    window.open(urlLocal, '_blank');
-                }
-            };
-            
-            // Adiciona handler de erro na imagem
-            img.onerror = (e) => {
-                console.error('❌ Erro ao carregar imagem:', e);
-                img.style.display = 'none';
-                const errorText = document.createElement('div');
-                errorText.style.cssText = 'padding:10px;text-align:center;color:#f00';
-                errorText.textContent = '❌ Erro ao carregar';
-                div.appendChild(errorText);
-            };
-            
-            img.onload = () => {
-                console.log('✅ Imagem carregada com sucesso');
-            };
+            if (urlLocal) {
+                img = document.createElement('img');
+                img.src = urlLocal;
+                img.alt = 'Foto anexada';
+                img.style.opacity = '0.6';
+                img.style.display = 'block';
+                img.style.width = '100%';
+                img.style.height = '120px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '4px';
+                img.style.cursor = 'pointer';
+                
+                // Adiciona evento de click para ampliar
+                img.onclick = () => {
+                    const modal = document.getElementById('modalFoto');
+                    const modalImg = document.getElementById('imagemModal');
+                    if (modal && modalImg) {
+                        modalImg.src = urlLocal;
+                        modal.style.display = 'flex';
+                    } else {
+                        window.open(urlLocal, '_blank');
+                    }
+                };
+                
+                // Handler de erro na imagem — mostra placeholder informativo
+                img.onerror = (e) => {
+                    console.error('❌ Erro ao carregar imagem:', e);
+                    img.style.display = 'none';
+                    const errorText = document.createElement('div');
+                    errorText.style.cssText = 'padding:15px 10px;text-align:center;color:#f57c00';
+                    errorText.innerHTML = `
+                        <div style="font-size:1.5em;margin-bottom:5px">📤</div>
+                        <div style="font-size:0.8em;font-weight:600">Enviando ao Drive...</div>
+                        <div style="font-size:0.7em;color:#666;margin-top:3px">Foto ${index+1}</div>
+                    `;
+                    div.appendChild(errorText);
+                };
+                
+                img.onload = () => {
+                    console.log('✅ Imagem carregada com sucesso no preview');
+                };
+                
+                div.appendChild(img);
+            } else {
+                // Sem URL (erro anterior) — mostra apenas placeholder de upload
+                const placeholderText = document.createElement('div');
+                placeholderText.style.cssText = 'padding:15px 10px;text-align:center;color:#4285f4';
+                placeholderText.innerHTML = `
+                    <div style="font-size:1.5em;margin-bottom:5px">📤</div>
+                    <div style="font-size:0.8em;font-weight:600">Enviando...</div>
+                    <div style="font-size:0.7em;color:#666;margin-top:3px">Foto ${index+1}</div>
+                `;
+                div.appendChild(placeholderText);
+            }
             
             const btnRemover = document.createElement('button');
             btnRemover.className = 'remover-foto';
@@ -8142,14 +8824,15 @@ async function anexarFotosGoogleDrive(input) {
                 div.setAttribute('data-drive-url', resultado.url);
                 div.setAttribute('data-upload-status', 'completed');
                 
-                // Remove badge e restaura opacidade
-                badge.remove();
-                img.style.opacity = '1';
+                // Remove badge e restaura opacidade da imagem (se existe)
+                if (badge && badge.parentNode) badge.remove();
+                if (img) img.style.opacity = '1';
                 
                 // 🚀 BOTÃO X JÁ ESTÁ CONFIGURADO - Apenas atualiza estado
                 // (Agora o botão detecta se tem data-drive-id e age de acordo)
                 
                 enviadas++;
+                ultimoProgresso = Date.now(); // 🔥 Atualiza watchdog
                 const percentual = Math.round((enviadas / total) * 100);
                 if (progressBar) {
                     progressBar.style.width = percentual + '%';
@@ -8163,10 +8846,12 @@ async function anexarFotosGoogleDrive(input) {
                 // ❌ Se falhar, marca como erro mas mantém preview local
                 console.error('❌ Upload ' + (index+1) + ' falhou:', uploadError);
                 
-                // Altera badge para erro mas MANTÉM a foto
-                badge.textContent = '⚠️ Erro';
-                badge.style.background = 'rgba(220, 53, 69, 0.9)';
-                img.style.opacity = '0.7';
+                // Altera badge para erro mas MANTÉM a foto (se existem)
+                if (badge) {
+                    badge.textContent = '⚠️ Erro';
+                    badge.style.background = 'rgba(220, 53, 69, 0.9)';
+                }
+                if (img) img.style.opacity = '0.7';
                 
                 // 🚀 BOTÃO X JÁ FUNCIONA - Não precisa reconfigurar
                 
@@ -8182,6 +8867,9 @@ async function anexarFotosGoogleDrive(input) {
     
     // Aguarda todas as compressões terminarem (mas NÃO os uploads!)
     await Promise.all(promessas);
+    
+    // 🔥 Limpa o watchdog quando termina
+    clearInterval(watchdog);
     
     if (progressDiv) {
         setTimeout(() => {
