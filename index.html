@@ -8526,6 +8526,46 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                 blocoPerda += `\n`;
             }
 
+            // ─── CÁLCULO DA PREMIAÇÃO ACUMULADA (3 meses) ───
+            function getMediaMes(lojaIndex, mes, ano) {
+                const hist = JSON.parse(localStorage.getItem("hist_" + lojaIndex) || "[]");
+                const visitas = hist.filter(v => {
+                    let d;
+                    if (typeof v.data === 'string' && v.data.includes('/')) {
+                        const p = v.data.split(' ')[0].split('/');
+                        if (p.length === 3) d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+                    } else {
+                        d = new Date(v.data);
+                    }
+                    return d && !isNaN(d.getTime()) && d.getMonth() === mes && d.getFullYear() === ano;
+                });
+                if (visitas.length === 0) return null;
+                let soma = 0;
+                visitas.forEach(v => soma += calculaTotalPontos(v.dados));
+                return soma / visitas.length;
+            }
+
+            const lojaIndex = lojas.indexOf(loja.nome);
+
+            // Monta os 3 meses: mês atual + 2 anteriores
+            const mesesAcumulados = [];
+            for (let i = 0; i < 3; i++) {
+                let m = mesAtual - i;
+                let a = anoAtual;
+                if (m < 0) { m += 12; a--; }
+                const mediaM = getMediaMes(lojaIndex, m, a);
+                let bonusM = 0;
+                if (mediaM !== null) {
+                    if (mediaM >= 18) bonusM = 300;
+                    else if (mediaM >= 14) bonusM = 150;
+                }
+                mesesAcumulados.push({ mes: m, ano: a, media: mediaM, bonus: bonusM });
+            }
+
+            const bonusMesAtual = mesesAcumulados[0].bonus;
+            const totalAcumulado = mesesAcumulados.reduce((s, m) => s + m.bonus, 0);
+            const mesesComBonus = mesesAcumulados.filter(m => m.bonus > 0).length;
+
             // ─── MENSAGENS POR CLASSIFICAÇÃO (com detalhes) ───
             if(loja.media >= 18) {
                 // EXCELENTE (18-21)
@@ -8538,6 +8578,22 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                 } else if(posicao <= 3) {
                     mensagem += `🥇 *TOP 3 DA REDE!*\n`;
                     mensagem += `Excelente trabalho!\n\n`;
+                }
+
+                // ── Premiação ──
+                mensagem += `💰 *PREMIAÇÃO MENSAL:*\n`;
+                mensagem += `Pelo resultado EXCELENTE, a equipe conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
+                if (mesesComBonus === 3) {
+                    mensagem += `🏆 *PREMIAÇÃO ACUMULADA (3 meses consecutivos):*\n`;
+                    mensagem += `• ${meses[mesesAcumulados[2].mes]}/${mesesAcumulados[2].ano}: R$ ${mesesAcumulados[2].bonus.toFixed(2)}\n`;
+                    mensagem += `• ${meses[mesesAcumulados[1].mes]}/${mesesAcumulados[1].ano}: R$ ${mesesAcumulados[1].bonus.toFixed(2)}\n`;
+                    mensagem += `• ${meses[mesesAcumulados[0].mes]}/${mesesAcumulados[0].ano}: R$ ${mesesAcumulados[0].bonus.toFixed(2)}\n`;
+                    mensagem += `*Total acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
+                } else if (mesesComBonus >= 2) {
+                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n`;
+                    mensagem += `Vocês estão em ${mesesComBonus} de 3 meses com premiação. Continue!\n\n`;
+                } else {
+                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n\n`;
                 }
 
                 // Mostra positivos
@@ -8562,6 +8618,22 @@ function gerarMensagensParaLojas(mesAtual, anoAtual) {
                 // BOM (14-17)
                 mensagem += `🔵 *BOM DESEMPENHO!*\n\n`;
                 mensagem += `👏 Parabéns pelo trabalho da equipe!\n\n`;
+
+                // ── Premiação ──
+                mensagem += `💰 *PREMIAÇÃO MENSAL:*\n`;
+                mensagem += `Pelo resultado BOM, a equipe conquista a premiação de *R$ ${bonusMesAtual.toFixed(2)}* este mês!\n\n`;
+                if (mesesComBonus === 3) {
+                    mensagem += `🏆 *PREMIAÇÃO ACUMULADA (3 meses consecutivos):*\n`;
+                    mensagem += `• ${meses[mesesAcumulados[2].mes]}/${mesesAcumulados[2].ano}: R$ ${mesesAcumulados[2].bonus.toFixed(2)}\n`;
+                    mensagem += `• ${meses[mesesAcumulados[1].mes]}/${mesesAcumulados[1].ano}: R$ ${mesesAcumulados[1].bonus.toFixed(2)}\n`;
+                    mensagem += `• ${meses[mesesAcumulados[0].mes]}/${mesesAcumulados[0].ano}: R$ ${mesesAcumulados[0].bonus.toFixed(2)}\n`;
+                    mensagem += `*Total acumulado: R$ ${totalAcumulado.toFixed(2)}*\n\n`;
+                } else if (mesesComBonus >= 2) {
+                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n`;
+                    mensagem += `Vocês estão em ${mesesComBonus} de 3 meses com premiação. Continue!\n\n`;
+                } else {
+                    mensagem += `📈 *Premiação acumulada (últimos 3 meses): R$ ${totalAcumulado.toFixed(2)}*\n\n`;
+                }
 
                 // Positivos
                 mensagem += blocoPositivos;
