@@ -6,57 +6,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- 
-🚀 VERSÃO FINAL - CÂMERA RÁPIDA E ESTÁVEL V8
+🚀 VERSÃO OTIMIZADA - CÂMERA RÁPIDA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ SOLUÇÃO DEFINITIVA - SEM TRAVAMENTOS:
-   • Fotos SEMPRE salvas no IndexedDB (instantâneo!)
-   • Salvamento NUNCA trava (não faz upload)
-   • Sincronização MANUAL quando quiser
-   • Você controla QUANDO enviar ao Drive
-
-📸 FLUXO OTIMIZADO:
-   1. Tirar foto → IndexedDB (instantâneo) ✨
-   2. Salvar visita → Rápido! (só salva local)
-   3. Quando quiser → Botão "📤 Sincronizar Fotos"
-   4. Upload em background → Com progresso real
-   5. Limpa IndexedDB → Libera espaço
-
-🎯 POR QUE ESTA ESTRATÉGIA É MELHOR:
-   ✅ Salvamento INSTANTÂNEO (0.5s vs 30s+)
-   ✅ Nunca trava ou congela
-   ✅ Você escolhe quando fazer upload
-   ✅ Pode fazer quando tiver WiFi rápido
-   ✅ Não depende de internet no campo
-
-📤 SINCRONIZAÇÃO MANUAL:
-   • Botão "📤 Sincronizar Fotos" no menu "Mais"
-   • Mostra progresso real (1/5, 2/5...)
-   • Timeout de 60s (pode cancelar)
-   • Auto-limpa IndexedDB após sucesso
-   • Modal bonito mostrando resultado
-
-🎨 BADGES VISUAIS:
-   • 💾 "Local" → Foto temporária
-   • 💾 "IndexedDB" → Foto salva
-   • ☁️ "Drive" → Foto sincronizada
-
-🔧 BOTÕES DISPONÍVEIS:
-   • "📤 Sincronizar Fotos" → Upload manual
-   • "💾 Limpar Fotos" → Remove do IndexedDB
-   • Ambos mostram estatísticas antes
-
-💡 WORKFLOW RECOMENDADO:
-   1. Durante visita: Tire fotos normalmente
-   2. Salve visita: Rápido! (tudo local)
-   3. No escritório/WiFi: Clique "Sincronizar Fotos"
-   4. Depois: Clique "Limpar Fotos" se quiser
-
-🔧 PROBLEMAS RESOLVIDOS:
-   ✅ Salvamento não trava mais
-   ✅ Camera funciona perfeitamente
-   ✅ Não depende de internet para salvar
-   ✅ Upload controlado pelo usuário
-   ✅ Progresso real e transparente
+✅ MELHORIAS IMPLEMENTADAS:
+   • Upload ASSÍNCRONO em background (não trava mais!)
+   • Preview INSTANTÂNEO (foto aparece na hora)
+   • Compressão otimizada (qualidade 0.6 = mais rápido)
+   • Badge "Enviando..." mostra progresso do upload
+   • Se upload falhar, foto fica salva localmente
+   
+📸 EXPERIÊNCIA DO USUÁRIO:
+   1. Tira foto → Aparece INSTANTANEAMENTE ✨
+   2. Badge "📤 Enviando..." mostra que está fazendo upload
+   3. Quando terminar → Badge desaparece e foto fica 100% nítida
+   4. Pode tirar outra foto IMEDIATAMENTE sem esperar!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 -->
 
@@ -1436,11 +1399,9 @@ function executarDiagnostico() {
       <button class="action" onclick="toggleResumo('mensal')">📊 Resumo Mensal</button>
       <button class="action" onclick="toggleResumo('geral')">📊 Resumo Geral</button>
       <button class="action" onclick="limparHistorico()" style="background:#dc3545">🗑️ Limpar Histórico</button>
-      <button class="action" onclick="limparFotosIndexedDB()" style="background:#ff9800">💾 Limpar Fotos</button>
       <button class="action" onclick="abrirDebug()" style="background:#6c757d">🔍 Debug</button>
       <button class="action" onclick="abrirConfigServidor()" style="background:#9c27b0">☁️ Servidor</button>
       <button class="action" onclick="abrirModalDrive()" style="background:#4285f4">☁️ Google Drive</button>
-      <button class="action" onclick="sincronizarFotosManual()" style="background:#34a853">📤 Sincronizar Fotos</button>
       <button class="action" onclick="sincronizarAgora()" style="background:#2196f3" id="btnSincronizar">☁️ Sincronizar</button>
     </div>
   </div>
@@ -2955,328 +2916,6 @@ async function removerFotoDB(id) {
     request.onerror = () => reject(request.error);
   });
 }
-
-// 🆕 TRANSFERE FOTOS DO INDEXEDDB PARA GOOGLE DRIVE
-async function transferirFotosIndexedDBParaDrive(visitaId, modalProgresso = null) {
-  console.log('🔄 Iniciando transferência de fotos do IndexedDB para Drive...');
-  
-  if (!CONFIG_DRIVE || !CONFIG_DRIVE.conectado) {
-    console.log('⚠️ Drive não conectado - fotos permanecem no IndexedDB');
-    return { sucesso: false, motivo: 'Drive não conectado' };
-  }
-  
-  try {
-    // 1️⃣ Obtém pasta do Drive uma única vez
-    const folderId = await obterOuCriarPasta();
-    console.log('📁 Pasta do Drive obtida:', folderId);
-    
-    let fotosTransferidas = 0;
-    let fotosErro = 0;
-    let espacoLiberado = 0; // em bytes
-    
-    // 2️⃣ Conta total de fotos a transferir
-    const secoes = document.querySelectorAll('.section[data-secao]');
-    let totalFotos = 0;
-    secoes.forEach(secao => {
-      const fotosDivs = secao.querySelectorAll('.foto-item');
-      fotosDivs.forEach(fotoDiv => {
-        const dbId = fotoDiv.getAttribute('data-db-id');
-        const driveId = fotoDiv.getAttribute('data-drive-id');
-        if (dbId && !driveId) totalFotos++;
-      });
-    });
-    
-    console.log(`📊 Total de fotos a transferir: ${totalFotos}`);
-    
-    // Se não tem fotos para transferir, retorna sucesso
-    if (totalFotos === 0) {
-      return { sucesso: true, transferidas: 0, erros: 0, espacoLiberado: 0 };
-    }
-    
-    let fotoAtual = 0;
-    
-    // 3️⃣ Percorre cada seção e transfere fotos
-    for (const secao of secoes) {
-      const secaoId = secao.getAttribute('data-secao');
-      const fotosDivs = secao.querySelectorAll('.foto-item');
-      
-      for (const fotoDiv of fotosDivs) {
-        const dbId = fotoDiv.getAttribute('data-db-id');
-        const driveId = fotoDiv.getAttribute('data-drive-id');
-        
-        // Se já está no Drive, pula
-        if (driveId) {
-          console.log(`   ✅ Foto já no Drive: ${driveId}`);
-          continue;
-        }
-        
-        // Se tem ID do IndexedDB, transfere para Drive
-        if (dbId) {
-          try {
-            fotoAtual++;
-            console.log(`   📤 [${fotoAtual}/${totalFotos}] Transferindo foto ${dbId}...`);
-            
-            // Atualiza modal de progresso
-            if (modalProgresso) {
-              atualizarModalProgresso(modalProgresso, fotoAtual, totalFotos);
-            }
-            
-            // Busca foto no IndexedDB
-            const fotoData = await buscarFotoPorId(parseInt(dbId));
-            
-            if (!fotoData || !fotoData.blob) {
-              console.warn(`   ⚠️ Foto ${dbId} não encontrada no IndexedDB`);
-              fotosErro++;
-              continue;
-            }
-            
-            // Guarda tamanho antes de deletar
-            const tamanhoFoto = fotoData.blob.size;
-            
-            // Upload para Drive
-            const nomeArquivo = `shoemix_sec${secaoId}_${Date.now()}.jpg`;
-            const resultado = await uploadFotoParaDriveComPasta(fotoData.blob, nomeArquivo, folderId);
-            
-            // Atualiza DOM
-            fotoDiv.setAttribute('data-drive-id', resultado.id);
-            fotoDiv.setAttribute('data-drive-url', resultado.url);
-            fotoDiv.removeAttribute('data-db-id');
-            
-            // 🆕 ATUALIZA BADGE VISUAL
-            const badge = fotoDiv.querySelector('.storage-badge');
-            if (badge) {
-              badge.innerHTML = '☁️ Drive';
-              badge.style.background = 'rgba(52, 168, 83, 0.95)'; // Verde
-            }
-            
-            // ✅ LIMPA DO INDEXEDDB (economiza espaço!)
-            await removerFotoDB(parseInt(dbId));
-            espacoLiberado += tamanhoFoto;
-            
-            fotosTransferidas++;
-            console.log(`   ✅ Foto transferida e REMOVIDA do IndexedDB: ${dbId} → Drive ${resultado.id} (${(tamanhoFoto/1024).toFixed(1)}KB liberados)`);
-            
-          } catch (erro) {
-            console.error(`   ❌ Erro ao transferir foto ${dbId}:`, erro);
-            fotosErro++;
-            // Mantém no IndexedDB como fallback (não remove)
-          }
-        }
-      }
-    }
-    
-    console.log(`✅ Transferência concluída: ${fotosTransferidas} fotos → Drive, ${fotosErro} erros`);
-    console.log(`💾 Espaço liberado no IndexedDB: ${(espacoLiberado/1024/1024).toFixed(2)} MB`);
-    
-    return { 
-      sucesso: true, 
-      transferidas: fotosTransferidas, 
-      erros: fotosErro,
-      espacoLiberado: espacoLiberado
-    };
-    
-  } catch (erro) {
-    console.error('❌ Erro na transferência de fotos:', erro);
-    return { sucesso: false, motivo: erro.message };
-  }
-}
-
-// 🆕 BUSCA FOTO POR ID NO INDEXEDDB
-async function buscarFotoPorId(id) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_FOTOS], 'readonly');
-    const store = tx.objectStore(STORE_FOTOS);
-    const request = store.get(id);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// 🆕 LIMPA FOTOS ANTIGAS DO INDEXEDDB
-async function limparFotosIndexedDB() {
-  const confirmar = confirm(
-    '💾 LIMPEZA DE FOTOS DO INDEXEDDB\n\n' +
-    '⚠️ Esta ação irá:\n' +
-    '• Listar todas as fotos armazenadas localmente\n' +
-    '• Mostrar quanto espaço está sendo usado\n' +
-    '• Permitir que você escolha o que limpar\n\n' +
-    '✅ Fotos no Google Drive não serão afetadas\n\n' +
-    'Deseja continuar?'
-  );
-  
-  if (!confirmar) return;
-  
-  try {
-    // Busca todas as fotos do IndexedDB
-    const todasFotos = await new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_FOTOS], 'readonly');
-      const store = tx.objectStore(STORE_FOTOS);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    if (todasFotos.length === 0) {
-      alert('✅ Nenhuma foto no IndexedDB!\n\nTodas as fotos estão no Google Drive ou não há fotos salvas.');
-      return;
-    }
-    
-    // Calcula espaço total
-    let espacoTotal = 0;
-    todasFotos.forEach(foto => {
-      espacoTotal += foto.blob?.size || 0;
-    });
-    
-    const espacoMB = (espacoTotal / 1024 / 1024).toFixed(2);
-    
-    const limparTodas = confirm(
-      `💾 INFORMAÇÕES DO INDEXEDDB\n\n` +
-      `📊 Total de fotos: ${todasFotos.length}\n` +
-      `💾 Espaço usado: ${espacoMB} MB\n\n` +
-      `⚠️ ATENÇÃO:\n` +
-      `• Limpar estas fotos liberará espaço no navegador\n` +
-      `• Apenas limpe fotos que já foram enviadas ao Drive\n` +
-      `• Fotos não enviadas ao Drive serão PERDIDAS!\n\n` +
-      `${CONFIG_DRIVE?.conectado ? '✅ Drive conectado - Pode limpar com segurança' : '⚠️ Drive NÃO conectado - NÃO limpe agora!'}\n\n` +
-      `Deseja limpar TODAS as fotos do IndexedDB?`
-    );
-    
-    if (!limparTodas) return;
-    
-    // Limpa todas as fotos
-    let fotosRemovidas = 0;
-    for (const foto of todasFotos) {
-      try {
-        await removerFotoDB(foto.id);
-        fotosRemovidas++;
-      } catch (erro) {
-        console.error('Erro ao remover foto:', erro);
-      }
-    }
-    
-    alert(
-      `✅ LIMPEZA CONCLUÍDA!\n\n` +
-      `🗑️ Fotos removidas: ${fotosRemovidas}\n` +
-      `💾 Espaço liberado: ${espacoMB} MB\n\n` +
-      `${CONFIG_DRIVE?.conectado ? '✅ Suas fotos estão seguras no Google Drive' : '⚠️ Certifique-se de que tinha backup!'}`
-    );
-    
-  } catch (erro) {
-    console.error('❌ Erro ao limpar IndexedDB:', erro);
-    alert('❌ Erro ao limpar fotos: ' + erro.message);
-  }
-}
-
-// 🆕 SINCRONIZAR FOTOS MANUALMENTE
-async function sincronizarFotosManual() {
-  // Verifica se Drive está conectado
-  if (!CONFIG_DRIVE || !CONFIG_DRIVE.conectado) {
-    alert(
-      '⚠️ Google Drive não conectado!\n\n' +
-      'Por favor, conecte ao Google Drive primeiro:\n' +
-      '1. Clique em "☁️ Google Drive"\n' +
-      '2. Faça login\n' +
-      '3. Tente sincronizar novamente'
-    );
-    return;
-  }
-  
-  // Busca fotos pendentes
-  try {
-    const todasFotos = await new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_FOTOS], 'readonly');
-      const store = tx.objectStore(STORE_FOTOS);
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    
-    if (todasFotos.length === 0) {
-      alert('✅ Nenhuma foto pendente!\n\nTodas as fotos já foram sincronizadas ou não há fotos salvas.');
-      return;
-    }
-    
-    const espacoMB = (todasFotos.reduce((acc, f) => acc + (f.blob?.size || 0), 0) / 1024 / 1024).toFixed(2);
-    
-    const confirmar = confirm(
-      `📤 SINCRONIZAR FOTOS COM GOOGLE DRIVE\n\n` +
-      `📊 Fotos pendentes: ${todasFotos.length}\n` +
-      `💾 Tamanho total: ${espacoMB} MB\n\n` +
-      `✅ O que vai acontecer:\n` +
-      `• Upload das fotos para o Google Drive\n` +
-      `• Remoção automática do IndexedDB\n` +
-      `• Liberação de espaço no navegador\n\n` +
-      `⚠️ Esta operação pode demorar alguns minutos\n` +
-      `dependendo da sua conexão.\n\n` +
-      `Deseja continuar?`
-    );
-    
-    if (!confirmar) return;
-    
-    // Mostra modal de progresso
-    const modalProgresso = mostrarModalTransferencia();
-    
-    try {
-      // Cria visitaId fictício para a transferência
-      const visitaId = 'sync_manual_' + Date.now();
-      
-      // ⏱️ TIMEOUT de 60 segundos (mais tempo que o automático)
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: Sincronização demorou mais de 60 segundos')), 60000);
-      });
-      
-      const transferirPromise = transferirFotosIndexedDBParaDrive(visitaId, modalProgresso);
-      
-      const resultado = await Promise.race([transferirPromise, timeoutPromise]);
-      
-      // Remove modal de progresso
-      if (modalProgresso && modalProgresso.parentNode) {
-        modalProgresso.remove();
-      }
-      
-      if (resultado.sucesso) {
-        if (resultado.transferidas > 0) {
-          mostrarModalSucessoTransferencia(resultado.transferidas, resultado.espacoLiberado);
-        } else {
-          alert('ℹ️ Nenhuma foto nova para transferir.\n\nTodas as fotos já estão no Drive!');
-        }
-        
-        if (resultado.erros > 0) {
-          alert(
-            `⚠️ ATENÇÃO:\n\n` +
-            `✅ ${resultado.transferidas} fotos enviadas com sucesso\n` +
-            `❌ ${resultado.erros} fotos falharam\n\n` +
-            `As fotos com falha permaneceram no IndexedDB.\n` +
-            `Você pode tentar novamente mais tarde.`
-          );
-        }
-      } else {
-        alert(`❌ Falha na sincronização:\n\n${resultado.motivo}\n\nTente novamente mais tarde.`);
-      }
-      
-    } catch (erro) {
-      console.error('❌ Erro na sincronização:', erro);
-      
-      if (modalProgresso && modalProgresso.parentNode) {
-        modalProgresso.remove();
-      }
-      
-      alert(
-        '⚠️ A sincronização falhou ou demorou demais.\n\n' +
-        'Possíveis causas:\n' +
-        '• Conexão instável\n' +
-        '• Fotos muito grandes\n' +
-        '• Problema no Google Drive\n\n' +
-        'Tente novamente quando tiver melhor conexão.'
-      );
-    }
-    
-  } catch (erro) {
-    console.error('❌ Erro ao buscar fotos:', erro);
-    alert('❌ Erro ao verificar fotos pendentes: ' + erro.message);
-  }
-}
-
 const lojas=["LOJA 1-IBATE","LOJA 3-SÃO CARLOS","LOJA 4-ARARAQUARA","LOJA 5-SÃO CARLOS","LOJA 6-PIRASSUNUNGA","LOJA 7-ARARAQUARA","LOJA 8-ARARAQUARA","LOJA 9-A. BRASILIENSE"];
 let lojaAtual=0,visitaEmEdicao=null;
 function criarTabs(){const t=document.getElementById("tabs");t.innerHTML="";lojas.forEach((l,i)=>{const b=document.createElement("button");b.innerHTML=l.replace('-','<br>');b.onclick=()=>trocarLoja(i);if(i===lojaAtual)b.classList.add("active");t.appendChild(b)})}
@@ -3426,11 +3065,48 @@ function salvarAntesDeFoto() {
 
 async function anexarFoto(input){
     
-    // 🎯 NOVA ESTRATÉGIA: SEMPRE salva no IndexedDB primeiro
-    // Fotos serão transferidas para Drive automaticamente ao salvar a visita completa
-    console.log('📸 Salvando foto no IndexedDB (será enviada ao Drive ao salvar visita)');
+    // 🔧 Se tem token salvo mas ainda não confirmou conexão, aguarda até 5s
+    if (CONFIG_DRIVE && !CONFIG_DRIVE.conectado && (CONFIG_DRIVE.accessToken || localStorage.getItem('google_access_token'))) {
+        const secao = input.closest('.section');
+        const preview = secao ? secao.querySelector('.fotos-preview') : null;
+        
+        // Mostra indicador de espera no preview
+        const espera = document.createElement('div');
+        espera.className = 'foto-item';
+        espera.id = 'espera-conexao-drive';
+        espera.innerHTML = '<div style="padding:20px;text-align:center;color:#4285f4;font-weight:600">⏳ Conectando ao Drive...</div>';
+        if (preview) preview.appendChild(espera);
+        
+        // Aguarda até 5 segundos para o Drive conectar
+        let tentativas = 0;
+        while (!CONFIG_DRIVE.conectado && tentativas < 50) {
+            await new Promise(r => setTimeout(r, 100)); // 100ms × 50 = 5s máximo
+            tentativas++;
+        }
+        
+        // Remove indicador
+        if (espera.parentNode) espera.remove();
+        
+        // Se conectou dentro do tempo, segue para o Drive
+        if (CONFIG_DRIVE.conectado) {
+            console.log('✅ Drive conectou em tempo — enviando foto para Drive');
+            anexarFotosGoogleDrive(input);
+            return;
+        }
+        
+        // Se não conectou em 5s, cai para IndexedDB com aviso
+        console.warn('⚠️ Drive não conectou em tempo — salvando localmente');
+        mostrarToast('⚠️ Drive não conectou em tempo. Foto salva localmente.', 'aviso');
+    }
     
-    // Continua com método IndexedDB (funciona sempre!)
+    // ✅ Drive conectado normalmente — vai direto
+    if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+        anexarFotosGoogleDrive(input);
+        return;
+    }
+    
+    
+    // Continua com método original (IndexedDB)
 
     const secao=input.closest('.section');
     const secaoId=secao.getAttribute('data-secao');
@@ -3463,25 +3139,6 @@ async function anexarFoto(input){
                 div.className='foto-item';
                 div.setAttribute('data-foto-id',fotoId);
                 div.setAttribute('data-blob-url', url); // Guarda URL
-                div.style.position = 'relative'; // Para posicionar badge
-                
-                // 🆕 BADGE indicando armazenamento temporário
-                const badge = document.createElement('div');
-                badge.className = 'storage-badge';
-                badge.innerHTML = '💾 Local';
-                badge.style.cssText = `
-                    position: absolute;
-                    top: 5px;
-                    left: 5px;
-                    background: rgba(255, 152, 0, 0.95);
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-size: 0.7em;
-                    font-weight: 600;
-                    z-index: 10;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                `;
                 
                 const btnRemover=document.createElement('button');
                 btnRemover.className='remover-foto';
@@ -3502,7 +3159,6 @@ async function anexarFoto(input){
                 }));
                 img.onclick=function(){ampliarFoto(fotoId)};
                 
-                div.appendChild(badge); // Adiciona badge primeiro
                 div.appendChild(btnRemover);
                 div.appendChild(img);
                 
@@ -4270,41 +3926,107 @@ async function salvar(aviso=false){
             
             const fotosDivs = secao.querySelectorAll('.foto-item');
             
-            // 💾 SEMPRE salva no IndexedDB primeiro (funciona sem travar!)
-            console.log(`💾 Seção ${secaoId}: Salvando fotos no IndexedDB`);
-            
-            for (const fotoDiv of fotosDivs) {
-                const fotoId = fotoDiv.getAttribute('data-foto-id');
-                const dbId = fotoDiv.getAttribute('data-db-id');
-                const driveId = fotoDiv.getAttribute('data-drive-id');
+            // ☁️ Se usa Google Drive, salva apenas os IDs
+            if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
+                console.log(`☁️ Seção ${secaoId}: Salvando referências do Google Drive`);
+                const fotosIDs = [];
                 
-                // Se já tem dbId ou driveId, pula (já está salva)
-                if (dbId || driveId) {
-                    console.log(`   ✅ Foto já salva: ${dbId || driveId}`);
-                    totalFotosSalvas++;
-                    continue;
+                // 🔥 Obtém pasta UMA VEZ para essa seção (evita chamadas repetidas)
+                let folderId = null;
+                
+                for (const fotoDiv of fotosDivs) {
+                    const driveId = fotoDiv.getAttribute('data-drive-id');
+                    const driveUrl = fotoDiv.getAttribute('data-drive-url');
+                    const fotoId = fotoDiv.getAttribute('data-foto-id');
+                    const blob = window.fotosTemporarias?.[fotoId];
+                    
+                    // ✅ Já está no Drive — registra normalmente
+                    if (driveId) {
+                        fotosIDs.push({
+                            driveId: driveId,
+                            driveUrl: driveUrl,
+                            secaoId: secaoId
+                        });
+                        totalFotosSalvas++;
+                        console.log(`   ☁️ Foto já no Drive: ${driveId}`);
+                    
+                    // 🔥 Foto local (foi para IndexedDB porque Drive não conectou no tempo) — sobe para o Drive agora
+                    } else if (blob) {
+                        try {
+                            console.log(`   📤 Foto local encontrada (${fotoId}) — enviando para Drive...`);
+                            mostrarToast('📤 Enviando foto local para o Drive...', 'info');
+                            
+                            // Busca pasta só quando precisa (e reutiliza)
+                            if (!folderId) {
+                                folderId = await obterOuCriarPasta();
+                            }
+                            
+                            const nomeArquivo = `shoemix_sec${secaoId}_${Date.now()}.jpg`;
+                            const resultado = await uploadFotoParaDriveComPasta(blob, nomeArquivo, folderId);
+                            
+                            // Atualiza os atributos no DOM
+                            fotoDiv.setAttribute('data-drive-id', resultado.id);
+                            fotoDiv.setAttribute('data-drive-url', resultado.url);
+                            fotoDiv.removeAttribute('data-foto-id');
+                            
+                            // Registra no array
+                            fotosIDs.push({
+                                driveId: resultado.id,
+                                driveUrl: resultado.url,
+                                secaoId: secaoId
+                            });
+                            totalFotosSalvas++;
+                            
+                            // Limpa o blob da memória
+                            delete window.fotosTemporarias[fotoId];
+                            
+                            console.log(`   ✅ Foto local enviada para Drive: ${resultado.id}`);
+                        } catch (errUpload) {
+                            console.error(`   ❌ Falhou ao enviar foto local para Drive:`, errUpload);
+                            mostrarToast('⚠️ Foto não foi enviada ao Drive — ficou salva localmente.', 'aviso');
+                            
+                            // Fallback: salva no IndexedDB para não perder
+                            try {
+                                const dbId = await salvarFotoDB(blob, visitaId, secaoId);
+                                fotoDiv.setAttribute('data-db-id', dbId);
+                                fotoDiv.removeAttribute('data-foto-id');
+                                console.log(`   💾 Fallback: foto salva no IndexedDB: ${dbId}`);
+                            } catch (errDB) {
+                                console.error('   ❌ Fallback IndexedDB também falhou:', errDB);
+                            }
+                        }
+                    } else {
+                        console.warn(`   ⚠️ Foto sem driveId e sem blob (${fotoId}) — ignorada.`);
+                    }
                 }
                 
-                // Verifica se tem foto temporária (recém anexada)
-                const blob = window.fotosTemporarias?.[fotoId];
+                // Salva IDs no localStorage como parte dos dados
+                if (fotosIDs.length > 0) {
+                    dados['fotos_drive_' + secaoId] = JSON.stringify(fotosIDs);
+                    console.log(`✅ ${fotosIDs.length} fotos do Drive registradas para seção ${secaoId}`);
+                }
                 
-                if (blob) {
-                    // Salva no IndexedDB
-                    const newDbId = await salvarFotoDB(blob, visitaId, secaoId);
-                    console.log(`✅ Foto ${fotoId} → IndexedDB ID: ${newDbId}`);
+            } else {
+                // 💾 Se não usa Google Drive, salva no IndexedDB
+                console.log(`💾 Seção ${secaoId}: Salvando no IndexedDB (Drive não conectado)`);
+                
+                for (const fotoDiv of fotosDivs) {
+                    const fotoId = fotoDiv.getAttribute('data-foto-id');
                     
-                    // Marca como salva
-                    fotoDiv.setAttribute('data-db-id', newDbId);
-                    fotoDiv.removeAttribute('data-foto-id'); // Remove ID temporário
+                    // Verifica se tem foto temporária (recém anexada)
+                    const blob = window.fotosTemporarias?.[fotoId];
                     
-                    // 🆕 ATUALIZA BADGE VISUAL
-                    const badge = fotoDiv.querySelector('.storage-badge');
-                    if (badge) {
-                        badge.innerHTML = '💾 IndexedDB';
-                        badge.style.background = 'rgba(33, 150, 243, 0.95)'; // Azul
+                    if (blob) {
+                        // Salva no IndexedDB
+                        const dbId = await salvarFotoDB(blob, visitaId, secaoId);
+                        console.log(`✅ Foto ${fotoId} → IndexedDB ID: ${dbId}`);
+                        
+                        // Marca como salva
+                        fotoDiv.setAttribute('data-db-id', dbId);
+                        fotoDiv.removeAttribute('data-foto-id'); // Remove ID temporário
+                        
+                        totalFotosSalvas++;
                     }
-                    
-                    totalFotosSalvas++;
                 }
             }
         }
@@ -4312,15 +4034,7 @@ async function salvar(aviso=false){
         // Limpa temporários após salvar
         window.fotosTemporarias = {};
         
-        console.log(`✅ ${totalFotosSalvas} fotos salvas no IndexedDB para visita ${visitaId}`);
-        
-        // 🎯 NOVA ESTRATÉGIA: NÃO transfere automaticamente!
-        // Motivo: Upload demora muito e trava o salvamento
-        // Solução: Deixa no IndexedDB e oferece transferência manual
-        
-        console.log('💾 Fotos salvas no IndexedDB - Use o botão de sincronização para enviar ao Drive quando quiser');
-        
-        const metodoSalvamento = 'IndexedDB (sincronizar depois para Drive)';
+        const metodoSalvamento = (CONFIG_DRIVE && CONFIG_DRIVE.conectado) ? 'Google Drive' : 'IndexedDB';
         console.log(`✅ ${totalFotosSalvas} fotos salvas para visita ${visitaId}`);
         console.log(`📍 Método de armazenamento: ${metodoSalvamento}`);
         
@@ -4364,9 +4078,9 @@ async function salvar(aviso=false){
         // 🆕 Mensagem dinâmica baseada em onde as fotos foram salvas
         let mensagemFotos = '';
         if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
-            mensagemFotos = '💾 Fotos salvas localmente\n☁️ Use o botão "🔄 Sincronizar Fotos" quando quiser enviá-las ao Drive';
+            mensagemFotos = '☁️ Fotos salvas no Google Drive';
         } else {
-            mensagemFotos = '💾 Fotos armazenadas no IndexedDB';
+            mensagemFotos = '📸 Fotos armazenadas no IndexedDB';
         }
         
         alert("✅ Visita salva com sucesso!\n\n" + mensagemFotos + "\n📦 Total de visitas: " + hist.length);
@@ -4732,24 +4446,6 @@ async function carregarVisita(i){
                                 div.setAttribute('data-secao-id', secaoId);
                                 div.style.cssText = 'position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
                                 
-                                // 🆕 BADGE indicando que foto veio do Drive
-                                const badge = document.createElement('div');
-                                badge.className = 'storage-badge';
-                                badge.innerHTML = '☁️ Drive';
-                                badge.style.cssText = `
-                                    position: absolute;
-                                    top: 5px;
-                                    left: 5px;
-                                    background: rgba(52, 168, 83, 0.95);
-                                    color: white;
-                                    padding: 4px 8px;
-                                    border-radius: 4px;
-                                    font-size: 0.7em;
-                                    font-weight: 600;
-                                    z-index: 10;
-                                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                                `;
-                                
                                 const img = document.createElement('img');
                                 img.src = urlLocal;
                                 img.alt = 'Foto do Drive';
@@ -4783,7 +4479,6 @@ async function carregarVisita(i){
                                     }
                                 };
                                 
-                                div.appendChild(badge); // Badge primeiro
                                 div.appendChild(img);
                                 div.appendChild(btnRemover);
                                 preview.appendChild(div);
@@ -4844,25 +4539,6 @@ async function carregarVisita(i){
                             const div = document.createElement('div');
                             div.className = 'foto-item';
                             div.setAttribute('data-db-id', foto.id); // ID do banco
-                            div.style.position = 'relative'; // Para posicionar badge
-                            
-                            // 🆕 BADGE indicando que foto está no IndexedDB
-                            const badge = document.createElement('div');
-                            badge.className = 'storage-badge';
-                            badge.innerHTML = '💾 IndexedDB';
-                            badge.style.cssText = `
-                                position: absolute;
-                                top: 5px;
-                                left: 5px;
-                                background: rgba(33, 150, 243, 0.95);
-                                color: white;
-                                padding: 4px 8px;
-                                border-radius: 4px;
-                                font-size: 0.7em;
-                                font-weight: 600;
-                                z-index: 10;
-                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                            `;
                             
                             const btnRemover = document.createElement('button');
                             btnRemover.className = 'remover-foto';
@@ -4895,7 +4571,6 @@ async function carregarVisita(i){
                                 modal.style.display = 'flex';
                             };
                             
-                            div.appendChild(badge); // Badge primeiro
                             div.appendChild(btnRemover);
                             div.appendChild(img);
                             preview.appendChild(div);
@@ -5060,25 +4735,6 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                     div.setAttribute('data-drive-id', foto.id);
                     div.setAttribute('data-drive-url', foto.webViewLink || foto.webContentLink);
                     div.setAttribute('data-secao-id', secaoId);
-                    div.style.position = 'relative'; // Para posicionar badge
-                    
-                    // 🆕 BADGE indicando que foto veio do Drive
-                    const badge = document.createElement('div');
-                    badge.className = 'storage-badge';
-                    badge.innerHTML = '☁️ Drive';
-                    badge.style.cssText = `
-                        position: absolute;
-                        top: 5px;
-                        left: 5px;
-                        background: rgba(52, 168, 83, 0.95);
-                        color: white;
-                        padding: 4px 8px;
-                        border-radius: 4px;
-                        font-size: 0.7em;
-                        font-weight: 600;
-                        z-index: 10;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    `;
                     
                     const btnRemover = document.createElement('button');
                     btnRemover.className = 'remover-foto';
@@ -5112,7 +4768,6 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                         modal.style.display = 'flex';
                     };
                     
-                    div.appendChild(badge); // Badge primeiro
                     div.appendChild(btnRemover);
                     div.appendChild(img);
                     preview.appendChild(div);
@@ -6075,256 +5730,6 @@ function mostrarToast(msg, tipo = 'sucesso') {
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }
-
-// 🆕 MODAL DE PROGRESSO DA TRANSFERÊNCIA
-function mostrarModalTransferencia() {
-    const modal = document.createElement('div');
-    modal.id = 'modalTransferenciaFotos';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 99999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    `;
-    
-    modal.innerHTML = `
-        <div style="
-            background: white;
-            padding: 40px;
-            border-radius: 16px;
-            text-align: center;
-            max-width: 400px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        ">
-            <div style="font-size: 4em; margin-bottom: 20px; animation: pulse 1.5s infinite;">☁️</div>
-            <h2 style="color: #4285f4; margin: 0 0 10px 0;">Transferindo Fotos</h2>
-            <p style="color: #666; margin: 0 0 10px 0;" id="progressText">Preparando...</p>
-            <p style="color: #999; margin: 0 0 20px 0; font-size: 0.9em;" id="progressCounter">0 de 0</p>
-            <div style="
-                width: 100%;
-                height: 8px;
-                background: #e0e0e0;
-                border-radius: 4px;
-                overflow: hidden;
-                margin-bottom: 20px;
-            ">
-                <div id="progressBar" style="
-                    width: 0%;
-                    height: 100%;
-                    background: linear-gradient(90deg, #4285f4, #34a853);
-                    transition: width 0.3s ease;
-                "></div>
-            </div>
-            <div style="font-size: 0.85em; color: #999; margin-bottom: 15px;">
-                ⏱️ Aguarde... (máx. 30 segundos)
-            </div>
-            <button onclick="cancelarTransferencia()" style="
-                background: #dc3545;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 0.9em;
-            ">✕ Cancelar e Manter Local</button>
-        </div>
-    `;
-    
-    // Adiciona animações
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.8; }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    document.body.appendChild(modal);
-    return modal;
-}
-
-// 🆕 ATUALIZA PROGRESSO DO MODAL
-function atualizarModalProgresso(modal, atual, total) {
-    if (!modal) return;
-    
-    const progressText = modal.querySelector('#progressText');
-    const progressCounter = modal.querySelector('#progressCounter');
-    const progressBar = modal.querySelector('#progressBar');
-    
-    if (progressText) {
-        progressText.textContent = `Enviando foto ${atual} de ${total}...`;
-    }
-    
-    if (progressCounter) {
-        progressCounter.textContent = `${atual} de ${total}`;
-    }
-    
-    if (progressBar) {
-        const porcentagem = (atual / total) * 100;
-        progressBar.style.width = porcentagem + '%';
-    }
-}
-
-// 🆕 CANCELAR TRANSFERÊNCIA
-window.cancelarTransferencia = function() {
-    const modal = document.getElementById('modalTransferenciaFotos');
-    if (modal) {
-        modal.remove();
-    }
-    console.log('⚠️ Transferência cancelada pelo usuário');
-    alert(
-        '⚠️ Transferência cancelada!\n\n' +
-        'As fotos permanecem salvas no IndexedDB.\n\n' +
-        'Você pode transferi-las mais tarde salvando a visita novamente.'
-    );
-};
-
-
-// 🆕 MODAL DE SUCESSO DA TRANSFERÊNCIA
-function mostrarModalSucessoTransferencia(quantidade, espacoLiberado) {
-    const espacoMB = (espacoLiberado / 1024 / 1024).toFixed(2);
-    
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 99999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: fadeIn 0.3s ease;
-    `;
-    
-    modal.innerHTML = `
-        <div style="
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            max-width: 500px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-            animation: slideUp 0.4s ease;
-        ">
-            <div style="
-                width: 80px;
-                height: 80px;
-                margin: 0 auto 20px;
-                background: linear-gradient(135deg, #34a853, #0f9d58);
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 3em;
-                animation: checkmark 0.6s ease;
-            ">✓</div>
-            
-            <h2 style="color: #34a853; margin: 0 0 15px 0; font-size: 1.8em;">
-                Transferência Concluída!
-            </h2>
-            
-            <div style="
-                background: #f0f7f4;
-                border-left: 4px solid #34a853;
-                padding: 20px;
-                margin: 20px 0;
-                border-radius: 8px;
-                text-align: left;
-            ">
-                <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <span style="font-size: 2em; margin-right: 15px;">☁️</span>
-                    <div>
-                        <strong style="color: #333; font-size: 1.2em;">${quantidade} foto${quantidade > 1 ? 's' : ''}</strong>
-                        <div style="color: #666; font-size: 0.9em;">Enviada${quantidade > 1 ? 's' : ''} para o Google Drive</div>
-                    </div>
-                </div>
-                
-                <div style="display: flex; align-items: center;">
-                    <span style="font-size: 2em; margin-right: 15px;">💾</span>
-                    <div>
-                        <strong style="color: #333; font-size: 1.2em;">${espacoMB} MB</strong>
-                        <div style="color: #666; font-size: 0.9em;">Liberados no navegador</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="
-                background: #e8f4fd;
-                border-left: 4px solid #4285f4;
-                padding: 15px;
-                margin: 20px 0;
-                border-radius: 8px;
-                text-align: left;
-                font-size: 0.9em;
-            ">
-                <strong style="color: #1967d2;">✨ Benefícios:</strong>
-                <ul style="margin: 10px 0 0 20px; color: #555;">
-                    <li>Fotos seguras na nuvem</li>
-                    <li>Espaço do navegador liberado</li>
-                    <li>Acesso de qualquer dispositivo</li>
-                </ul>
-            </div>
-            
-            <button onclick="this.closest('div').parentElement.remove()" style="
-                background: linear-gradient(135deg, #34a853, #0f9d58);
-                color: white;
-                border: none;
-                padding: 15px 40px;
-                border-radius: 8px;
-                font-size: 1.1em;
-                font-weight: 600;
-                cursor: pointer;
-                margin-top: 10px;
-                box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
-                transition: all 0.3s ease;
-            " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(52, 168, 83, 0.4)'" 
-               onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(52, 168, 83, 0.3)'">
-                ✓ Entendido
-            </button>
-        </div>
-    `;
-    
-    // Adiciona animações
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes checkmark {
-            0% { transform: scale(0) rotate(-45deg); }
-            50% { transform: scale(1.2) rotate(0deg); }
-            100% { transform: scale(1) rotate(0deg); }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    document.body.appendChild(modal);
-    
-    // Auto-fecha após 15 segundos
-    setTimeout(() => {
-        if (modal.parentNode) {
-            modal.style.animation = 'fadeOut 0.3s ease';
-            setTimeout(() => modal.remove(), 300);
-        }
-    }, 15000);
-}
-
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🆕 FUNÇÕES DE CONTROLE DO INDICADOR DE SINCRONIZAÇÃO
