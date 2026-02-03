@@ -4732,6 +4732,24 @@ async function carregarVisita(i){
                                 div.setAttribute('data-secao-id', secaoId);
                                 div.style.cssText = 'position:relative;border:2px solid #000;border-radius:6px;padding:5px;background:#f9f9f9;width:150px;min-height:130px;display:inline-block;margin:5px';
                                 
+                                // 🆕 BADGE indicando que foto veio do Drive
+                                const badge = document.createElement('div');
+                                badge.className = 'storage-badge';
+                                badge.innerHTML = '☁️ Drive';
+                                badge.style.cssText = `
+                                    position: absolute;
+                                    top: 5px;
+                                    left: 5px;
+                                    background: rgba(52, 168, 83, 0.95);
+                                    color: white;
+                                    padding: 4px 8px;
+                                    border-radius: 4px;
+                                    font-size: 0.7em;
+                                    font-weight: 600;
+                                    z-index: 10;
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                                `;
+                                
                                 const img = document.createElement('img');
                                 img.src = urlLocal;
                                 img.alt = 'Foto do Drive';
@@ -4765,6 +4783,7 @@ async function carregarVisita(i){
                                     }
                                 };
                                 
+                                div.appendChild(badge); // Badge primeiro
                                 div.appendChild(img);
                                 div.appendChild(btnRemover);
                                 preview.appendChild(div);
@@ -4825,6 +4844,25 @@ async function carregarVisita(i){
                             const div = document.createElement('div');
                             div.className = 'foto-item';
                             div.setAttribute('data-db-id', foto.id); // ID do banco
+                            div.style.position = 'relative'; // Para posicionar badge
+                            
+                            // 🆕 BADGE indicando que foto está no IndexedDB
+                            const badge = document.createElement('div');
+                            badge.className = 'storage-badge';
+                            badge.innerHTML = '💾 IndexedDB';
+                            badge.style.cssText = `
+                                position: absolute;
+                                top: 5px;
+                                left: 5px;
+                                background: rgba(33, 150, 243, 0.95);
+                                color: white;
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                                font-size: 0.7em;
+                                font-weight: 600;
+                                z-index: 10;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                            `;
                             
                             const btnRemover = document.createElement('button');
                             btnRemover.className = 'remover-foto';
@@ -4857,6 +4895,7 @@ async function carregarVisita(i){
                                 modal.style.display = 'flex';
                             };
                             
+                            div.appendChild(badge); // Badge primeiro
                             div.appendChild(btnRemover);
                             div.appendChild(img);
                             preview.appendChild(div);
@@ -5021,6 +5060,25 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                     div.setAttribute('data-drive-id', foto.id);
                     div.setAttribute('data-drive-url', foto.webViewLink || foto.webContentLink);
                     div.setAttribute('data-secao-id', secaoId);
+                    div.style.position = 'relative'; // Para posicionar badge
+                    
+                    // 🆕 BADGE indicando que foto veio do Drive
+                    const badge = document.createElement('div');
+                    badge.className = 'storage-badge';
+                    badge.innerHTML = '☁️ Drive';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: 5px;
+                        left: 5px;
+                        background: rgba(52, 168, 83, 0.95);
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 0.7em;
+                        font-weight: 600;
+                        z-index: 10;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    `;
                     
                     const btnRemover = document.createElement('button');
                     btnRemover.className = 'remover-foto';
@@ -5054,6 +5112,7 @@ async function carregarFotosGoogleDriveNaEdicao(visitaId) {
                         modal.style.display = 'flex';
                     };
                     
+                    div.appendChild(badge); // Badge primeiro
                     div.appendChild(btnRemover);
                     div.appendChild(img);
                     preview.appendChild(div);
