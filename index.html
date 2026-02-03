@@ -1916,6 +1916,11 @@ function calcularEspacoUsado() {
 
 function atualizarIndicadorArmazenamento() {
     
+    // 🚫 Se os indicadores já foram ocultados, não faz nada
+    if (window.INDICADORES_OCULTOS) {
+        return;
+    }
+    
     // 🆕 Verifica se está usando Google Drive
     if (CONFIG_DRIVE && CONFIG_DRIVE.conectado) {
         const indicator = document.getElementById('storageIndicator');
@@ -5777,6 +5782,11 @@ function mostrarToast(msg, tipo = 'sucesso') {
  * @param {string} message - Mensagem a exibir
  */
 function atualizarIndicadorSync(status, message) {
+    // 🚫 Se os indicadores já foram ocultados, não faz nada
+    if (window.INDICADORES_OCULTOS) {
+        return;
+    }
+    
     const indicator = document.getElementById('syncIndicator');
     const dot = document.getElementById('syncDot');
     const text = document.getElementById('syncText');
@@ -5819,6 +5829,11 @@ function atualizarIndicadorSync(status, message) {
  * Mostra/oculta o indicador de sincronização
  */
 function toggleIndicadorSync(mostrar) {
+    // 🚫 Se os indicadores já foram ocultados, não faz nada
+    if (window.INDICADORES_OCULTOS) {
+        return;
+    }
+    
     const indicator = document.getElementById('syncIndicator');
     if (indicator) {
         indicator.style.display = mostrar ? 'flex' : 'none';
@@ -8865,11 +8880,17 @@ console.log('  • Use o botão "🔍 Executar Diagnóstico" se tiver problemas'
 console.log('');
 console.log('%c═══════════════════════════════════════════════════', 'color: #4285f4; font-weight: bold');
 
+// 🆕 FLAG GLOBAL PARA CONTROLAR VISIBILIDADE DOS INDICADORES
+window.INDICADORES_OCULTOS = false;
+
 // 🆕 AUTO-OCULTAR INDICADORES APÓS 15 SEGUNDOS
 (function() {
     console.log('%c⏰ Timer de auto-ocultar iniciado (15 segundos)', 'color: #ff9800; font-weight: bold');
     
     setTimeout(function() {
+        // Define flag global
+        window.INDICADORES_OCULTOS = true;
+        
         const storageIndicator = document.getElementById('storageIndicator');
         const syncIndicator = document.getElementById('syncIndicator');
         
