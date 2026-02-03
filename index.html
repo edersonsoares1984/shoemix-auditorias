@@ -3181,6 +3181,20 @@ async function sincronizarFotosManual() {
     return;
   }
   
+  // 🆕 VERIFICA SE TEM FOTOS TEMPORÁRIAS (não salvas)
+  const fotosTemporarias = document.querySelectorAll('.foto-item[data-foto-id]');
+  if (fotosTemporarias.length > 0) {
+    alert(
+      `⚠️ ATENÇÃO: Fotos não salvas!\n\n` +
+      `Você tem ${fotosTemporarias.length} foto(s) que ainda não foram salvas.\n\n` +
+      `📝 Por favor:\n` +
+      `1. Clique em "💾 Salvar" para salvar a visita\n` +
+      `2. Depois clique em "📤 Sincronizar Fotos"\n\n` +
+      `Fotos precisam ser salvas antes de sincronizar!`
+    );
+    return;
+  }
+  
   // Busca fotos pendentes
   try {
     const todasFotos = await new Promise((resolve, reject) => {
