@@ -200,7 +200,8 @@ button.action:active {
   background: #555;
 }
 /* 🆕 Indicador de Espaço */
-.storage-indicator{position:fixed;top:10px;right:10px;background:#fff;border:2px solid #f00;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9999;font-size:0.85em}
+.storage-indicator{position:fixed;top:10px;right:10px;background:#fff;border:2px solid #f00;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9999;font-size:0.85em;opacity:1;transition:opacity 0.5s ease}
+.storage-indicator.hide{opacity:0;pointer-events:none}
 .storage-bar{width:120px;height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin:5px 0}
 .storage-fill{height:100%;background:#28a745;transition:all 0.3s}
 .storage-fill.warning{background:#ffc107}
@@ -208,7 +209,8 @@ button.action:active {
 .storage-info{font-size:0.75em;color:#666;margin-top:3px}
 
 /* 🆕 Indicador de Sincronização */
-.sync-indicator{position:fixed;top:10px;left:10px;background:#fff;border:2px solid #28a745;border-radius:8px;padding:10px 15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9999;font-size:0.9em;display:flex;align-items:center;gap:8px}
+.sync-indicator{position:fixed;top:10px;left:10px;background:#fff;border:2px solid #28a745;border-radius:8px;padding:10px 15px;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:9999;font-size:0.9em;display:flex;align-items:center;gap:8px;opacity:1;transition:opacity 0.5s ease}
+.sync-indicator.hide{opacity:0;pointer-events:none}
 .sync-indicator.syncing{border-color:#ffc107}
 .sync-indicator.error{border-color:#dc3545}
 .sync-dot{width:10px;height:10px;border-radius:50%;background:#28a745}
@@ -8862,6 +8864,38 @@ console.log('  • Clique no botão ℹ️ (canto superior esquerdo) para ver o 
 console.log('  • Use o botão "🔍 Executar Diagnóstico" se tiver problemas');
 console.log('');
 console.log('%c═══════════════════════════════════════════════════', 'color: #4285f4; font-weight: bold');
+
+// 🆕 AUTO-OCULTAR INDICADORES APÓS 15 SEGUNDOS
+(function() {
+    console.log('%c⏰ Timer de auto-ocultar iniciado (15 segundos)', 'color: #ff9800; font-weight: bold');
+    
+    setTimeout(function() {
+        const storageIndicator = document.getElementById('storageIndicator');
+        const syncIndicator = document.getElementById('syncIndicator');
+        
+        if (storageIndicator) {
+            storageIndicator.classList.add('hide');
+            console.log('✅ Indicador de Armazenamento ocultado');
+        }
+        
+        if (syncIndicator) {
+            syncIndicator.classList.add('hide');
+            console.log('✅ Indicador de Sincronização ocultado');
+        }
+        
+        // Após 1 segundo do fade out, remove completamente do DOM para garantir que não apareça na impressão
+        setTimeout(function() {
+            if (storageIndicator) {
+                storageIndicator.style.display = 'none';
+            }
+            if (syncIndicator) {
+                syncIndicator.style.display = 'none';
+            }
+            console.log('🗑️ Indicadores removidos do DOM (não vão aparecer na impressão)');
+        }, 1000);
+        
+    }, 15000); // 15 segundos
+})();
 
 </script>
 </body>
