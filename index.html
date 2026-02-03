@@ -2946,7 +2946,7 @@ async function removerFotoDB(id) {
 }
 
 // 🆕 TRANSFERE FOTOS DO INDEXEDDB PARA GOOGLE DRIVE
-async function transferirFotosIndexedDBParaDrive(visitaId) {
+async function transferirFotosIndexedDBParaDrive(visitaId, modalProgresso = null) {
   console.log('🔄 Iniciando transferência de fotos do IndexedDB para Drive...');
   
   if (!CONFIG_DRIVE || !CONFIG_DRIVE.conectado) {
@@ -2963,9 +2963,28 @@ async function transferirFotosIndexedDBParaDrive(visitaId) {
     let fotosErro = 0;
     let espacoLiberado = 0; // em bytes
     
-    // 2️⃣ Busca todas as seções com fotos
+    // 2️⃣ Conta total de fotos a transferir
     const secoes = document.querySelectorAll('.section[data-secao]');
+    let totalFotos = 0;
+    secoes.forEach(secao => {
+      const fotosDivs = secao.querySelectorAll('.foto-item');
+      fotosDivs.forEach(fotoDiv => {
+        const dbId = fotoDiv.getAttribute('data-db-id');
+        const driveId = fotoDiv.getAttribute('data-drive-id');
+        if (dbId && !driveId) totalFotos++;
+      });
+    });
     
+    console.log(`📊 Total de fotos a transferir: ${totalFotos}`);
+    
+    // Se não tem fotos para transferir, retorna sucesso
+    if (totalFotos === 0) {
+      return { sucesso: true, transferidas: 0, erros: 0, espacoLiberado: 0 };
+    }
+    
+    let fotoAtual = 0;
+    
+    // 3️⃣ Percorre cada seção e transfere fotos
     for (const secao of secoes) {
       const secaoId = secao.getAttribute('data-secao');
       const fotosDivs = secao.querySelectorAll('.foto-item');
@@ -2983,13 +3002,20 @@ async function transferirFotosIndexedDBParaDrive(visitaId) {
         // Se tem ID do IndexedDB, transfere para Drive
         if (dbId) {
           try {
-            console.log(`   📤 Transferindo foto ${dbId} do IndexedDB para Drive...`);
+            fotoAtual++;
+            console.log(`   📤 [${fotoAtual}/${totalFotos}] Transferindo foto ${dbId}...`);
+            
+            // Atualiza modal de progresso
+            if (modalProgresso) {
+              atualizarModalProgresso(modalProgresso, fotoAtual, totalFotos);
+            }
             
             // Busca foto no IndexedDB
             const fotoData = await buscarFotoPorId(parseInt(dbId));
             
             if (!fotoData || !fotoData.blob) {
               console.warn(`   ⚠️ Foto ${dbId} não encontrada no IndexedDB`);
+              fotosErro++;
               continue;
             }
             
@@ -4174,29 +4200,55 @@ async function salvar(aviso=false){
             // Mostra modal de progresso
             const modalProgresso = mostrarModalTransferencia();
             
-            const resultado = await transferirFotosIndexedDBParaDrive(visitaId);
-            
-            // Remove modal de progresso
-            if (modalProgresso && modalProgresso.parentNode) {
-                modalProgresso.remove();
-            }
-            
-            if (resultado.sucesso) {
-                if (resultado.transferidas > 0) {
-                    console.log(`✅ ${resultado.transferidas} fotos transferidas para Drive!`);
-                    
-                    // 🎉 MODAL DE SUCESSO COM INFORMAÇÕES DETALHADAS
-                    mostrarModalSucessoTransferencia(resultado.transferidas, resultado.espacoLiberado);
+            try {
+                // ⏱️ TIMEOUT de 30 segundos para evitar travamento infinito
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Timeout: Transferência demorou mais de 30 segundos')), 30000);
+                });
+                
+                const transferirPromise = transferirFotosIndexedDBParaDrive(visitaId, modalProgresso);
+                
+                const resultado = await Promise.race([transferirPromise, timeoutPromise]);
+                
+                // Remove modal de progresso
+                if (modalProgresso && modalProgresso.parentNode) {
+                    modalProgresso.remove();
+                }
+                
+                if (resultado.sucesso) {
+                    if (resultado.transferidas > 0) {
+                        console.log(`✅ ${resultado.transferidas} fotos transferidas para Drive!`);
+                        
+                        // 🎉 MODAL DE SUCESSO COM INFORMAÇÕES DETALHADAS
+                        mostrarModalSucessoTransferencia(resultado.transferidas, resultado.espacoLiberado);
+                    } else {
+                        console.log('ℹ️ Nenhuma foto nova para transferir (já estavam no Drive)');
+                    }
+                    if (resultado.erros > 0) {
+                        console.warn(`⚠️ ${resultado.erros} foto(s) permaneceram no IndexedDB`);
+                        alert(`⚠️ ATENÇÃO:\n\n${resultado.erros} foto(s) não puderam ser enviadas ao Drive e permaneceram salvas localmente.\n\nAs fotos não foram perdidas!`);
+                    }
                 } else {
-                    console.log('ℹ️ Nenhuma foto nova para transferir (já estavam no Drive)');
+                    console.error('❌ Falha na transferência:', resultado.motivo);
+                    alert(`⚠️ Não foi possível transferir fotos para o Drive.\n\nMotivo: ${resultado.motivo}\n\nAs fotos estão salvas localmente no navegador.`);
                 }
-                if (resultado.erros > 0) {
-                    console.warn(`⚠️ ${resultado.erros} foto(s) permaneceram no IndexedDB`);
-                    alert(`⚠️ ATENÇÃO:\n\n${resultado.erros} foto(s) não puderam ser enviadas ao Drive e permaneceram salvas localmente.\n\nAs fotos não foram perdidas!`);
+                
+            } catch (erro) {
+                console.error('❌ Erro ou timeout na transferência:', erro);
+                
+                // Remove modal de progresso
+                if (modalProgresso && modalProgresso.parentNode) {
+                    modalProgresso.remove();
                 }
-            } else {
-                console.error('❌ Falha na transferência:', resultado.motivo);
-                alert(`⚠️ Não foi possível transferir fotos para o Drive.\n\nMotivo: ${resultado.motivo}\n\nAs fotos estão salvas localmente no navegador.`);
+                
+                alert(
+                    '⚠️ A transferência de fotos demorou demais ou falhou.\n\n' +
+                    'As fotos estão SALVAS LOCALMENTE no IndexedDB.\n\n' +
+                    '💡 Você pode:\n' +
+                    '1. Tentar sincronizar novamente mais tarde\n' +
+                    '2. Verificar sua conexão com internet\n' +
+                    '3. Usar o botão "💾 Limpar Fotos" quando tiver certeza que foram transferidas'
+                );
             }
         } else {
             console.log('💾 Drive não conectado - fotos permanecem no IndexedDB');
@@ -5902,6 +5954,7 @@ function mostrarToast(msg, tipo = 'sucesso') {
 // 🆕 MODAL DE PROGRESSO DA TRANSFERÊNCIA
 function mostrarModalTransferencia() {
     const modal = document.createElement('div');
+    modal.id = 'modalTransferenciaFotos';
     modal.style.cssText = `
         position: fixed;
         top: 0;
@@ -5926,22 +5979,36 @@ function mostrarModalTransferencia() {
         ">
             <div style="font-size: 4em; margin-bottom: 20px; animation: pulse 1.5s infinite;">☁️</div>
             <h2 style="color: #4285f4; margin: 0 0 10px 0;">Transferindo Fotos</h2>
-            <p style="color: #666; margin: 0 0 20px 0;">Enviando fotos para o Google Drive...</p>
+            <p style="color: #666; margin: 0 0 10px 0;" id="progressText">Preparando...</p>
+            <p style="color: #999; margin: 0 0 20px 0; font-size: 0.9em;" id="progressCounter">0 de 0</p>
             <div style="
                 width: 100%;
                 height: 8px;
                 background: #e0e0e0;
                 border-radius: 4px;
                 overflow: hidden;
+                margin-bottom: 20px;
             ">
-                <div style="
-                    width: 100%;
+                <div id="progressBar" style="
+                    width: 0%;
                     height: 100%;
-                    background: linear-gradient(90deg, #4285f4, #34a853, #fbbc04, #ea4335);
-                    background-size: 200% 100%;
-                    animation: loading 1.5s infinite;
+                    background: linear-gradient(90deg, #4285f4, #34a853);
+                    transition: width 0.3s ease;
                 "></div>
             </div>
+            <div style="font-size: 0.85em; color: #999; margin-bottom: 15px;">
+                ⏱️ Aguarde... (máx. 30 segundos)
+            </div>
+            <button onclick="cancelarTransferencia()" style="
+                background: #dc3545;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.9em;
+            ">✕ Cancelar e Manter Local</button>
         </div>
     `;
     
@@ -5952,16 +6019,49 @@ function mostrarModalTransferencia() {
             0%, 100% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.1); opacity: 0.8; }
         }
-        @keyframes loading {
-            0% { background-position: 0% 0%; }
-            100% { background-position: 200% 0%; }
-        }
     `;
     document.head.appendChild(style);
     
     document.body.appendChild(modal);
     return modal;
 }
+
+// 🆕 ATUALIZA PROGRESSO DO MODAL
+function atualizarModalProgresso(modal, atual, total) {
+    if (!modal) return;
+    
+    const progressText = modal.querySelector('#progressText');
+    const progressCounter = modal.querySelector('#progressCounter');
+    const progressBar = modal.querySelector('#progressBar');
+    
+    if (progressText) {
+        progressText.textContent = `Enviando foto ${atual} de ${total}...`;
+    }
+    
+    if (progressCounter) {
+        progressCounter.textContent = `${atual} de ${total}`;
+    }
+    
+    if (progressBar) {
+        const porcentagem = (atual / total) * 100;
+        progressBar.style.width = porcentagem + '%';
+    }
+}
+
+// 🆕 CANCELAR TRANSFERÊNCIA
+window.cancelarTransferencia = function() {
+    const modal = document.getElementById('modalTransferenciaFotos');
+    if (modal) {
+        modal.remove();
+    }
+    console.log('⚠️ Transferência cancelada pelo usuário');
+    alert(
+        '⚠️ Transferência cancelada!\n\n' +
+        'As fotos permanecem salvas no IndexedDB.\n\n' +
+        'Você pode transferi-las mais tarde salvando a visita novamente.'
+    );
+};
+
 
 // 🆕 MODAL DE SUCESSO DA TRANSFERÊNCIA
 function mostrarModalSucessoTransferencia(quantidade, espacoLiberado) {
